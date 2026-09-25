@@ -2,6 +2,7 @@
 import { computed, toRef } from 'vue'
 import { useStationHistory, type DailyValue, type Parameter, type StationDay } from '../api'
 import { SCALES } from '../lib/scales'
+import { countryTag } from '../lib/countries'
 import { formatDate, formatValue, t } from '../strings'
 import HistoryChart from './HistoryChart.vue'
 import SnowChart from './SnowChart.vue'
@@ -61,7 +62,7 @@ const swatch = (s: Section) => (s.value !== null ? SCALES[s.parameter].classOf(s
   <aside class="station-panel panel" :aria-label="station.name">
     <header>
       <div>
-        <h2>{{ station.name }} <span class="tag">{{ t.countryTag[station.source] }}</span></h2>
+        <h2>{{ station.name }} <span class="tag">{{ countryTag(station.country) }}</span></h2>
         <p class="date">{{ formatDate(station.date) }}</p>
       </div>
       <button type="button" class="icon" :aria-label="t.close" :title="t.close" @click="emit('close')">×</button>

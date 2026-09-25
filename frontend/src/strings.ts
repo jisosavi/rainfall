@@ -1,7 +1,7 @@
 // All user-facing text (UK English), kept in one place so it can be translated later.
 export const t = {
   title: 'Nordic weather observations',
-  subtitle: 'Daily rainfall and snow depth at weather stations in Finland, Norway and Sweden',
+  subtitle: 'Daily rainfall and snow depth at Nordic weather stations',
   loading: 'Loading…',
   loadError: 'Could not load rainfall data. Please try again later.',
   noDataYet: 'No data available yet.',
@@ -38,11 +38,11 @@ export const t = {
   measurementNote: 'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day. Snow depth: measured on the morning of that date.',
   legendTitle: { precipitation: 'Rainfall per day', snow_depth: 'Snow depth' },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
-  attribution: 'Data: FMI, MET Norway and SMHI (CC BY 4.0), processed',
+  attribution: 'Data: FMI, MET Norway, SMHI and DMI (CC BY 4.0), processed',
   aboutButton: 'About Rainfall',
   aboutTitle: 'About Rainfall',
   aboutBody:
-    'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway and Sweden on a map. Pick a date and a measurement, and select a station for its recent history.',
+    'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland and the Faroe Islands on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
@@ -98,14 +98,21 @@ export const t = {
       corrections:
         'The last 10 days are re-checked on every run; many manual stations report late. On the 3rd of each month, the last four months are replaced with SMHI’s quality-controlled values.',
     },
+    {
+      source: 'dmi',
+      country: 'Denmark, Greenland, Faroe Islands',
+      provider: 'Danish Meteorological Institute (DMI)',
+      url: 'https://www.dmi.dk/frie-data',
+      licence: 'CC BY 4.0',
+      licenceUrl: 'https://www.dmi.dk/friedata/dokumentation/terms-of-use',
+      newValues: 'Yesterday, in the morning run (summed from hourly values)',
+      corrections:
+        'The last 10 days are re-checked on every run. A day counts only when all 24 hourly values are in; snow depth (Denmark) comes from mostly manual stations.',
+    },
   ] as const,
   countryFilter: 'Country',
   countryAll: 'All',
-  countryFinland: 'Finland',
-  countryNorway: 'Norway',
-  countrySweden: 'Sweden',
-  sourceName: { fmi: 'FMI', met: 'MET Norway', smhi: 'SMHI' },
-  countryTag: { fmi: 'FI', met: 'NO', smhi: 'SE' },
+  sourceName: { fmi: 'FMI', met: 'MET Norway', smhi: 'SMHI', dmi: 'DMI' },
 }
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })

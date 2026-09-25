@@ -1,4 +1,4 @@
-"""Run ingestion: `python -m app.ingest [--source fmi|met|smhi|all] [--start YYYY-MM-DD] [--end YYYY-MM-DD]`.
+"""Run ingestion: `python -m app.ingest [--source fmi|met|smhi|dmi|all] [--start YYYY-MM-DD] [--end YYYY-MM-DD]`.
 
 Without dates, each source backfills from INGEST_START_DATE if it has no data yet,
 otherwise re-fetches its last INGEST_REFETCH_DAYS days (sources revise recent values).
@@ -21,14 +21,14 @@ import httpx
 
 from app.config import get_settings
 from app.db.session import SessionLocal
-from app.ingest import fmi, met, smhi
+from app.ingest import dmi, fmi, met, smhi
 from app.db.models import PRECIPITATION, SNOW_DEPTH
 from app.qc import confirm_with_hourly, flag_spatial_outliers
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
 
-ALL_SOURCES = ["fmi", "met", "smhi"]
+ALL_SOURCES = ["fmi", "met", "smhi", "dmi"]
 # Measurement types each source provides.
 SOURCE_PARAMETERS = {source: (PRECIPITATION, SNOW_DEPTH) for source in ALL_SOURCES}
 
@@ -112,6 +112,7 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
     with (
         httpx.Client(timeout=120, headers={"User-Agent": met.USER_AGENT}) as fmi_client,
         smhi.make_client() as smhi_client,
+        dmi.make_client() as dmi_client,
         met.make_client(settings.frost_client_id or "") as met_client,
     ):
         def fetch(source: str, station_id: str, day: date) -> list[float]:
@@ -119,6 +120,8 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
                 return fmi.fetch_hourly_precipitation(fmi_client, station_id, day)
             if source == "met":
                 return met.fetch_hourly_precipitation(met_client, station_id, day) if settings.frost_client_id else []
+            if source == "dmi":
+                return dmi.fetch_hourly_precipitation(dmi_client, station_id, day)
             return smhi.fetch_hourly_precipitation(smhi_client, station_id, day, cache=smhi_cache)
 
         confirm_with_hourly(session, start, end, fetch)
@@ -136,6 +139,14 @@ def _ingest(session, source: str, start: date, end: date, settings, archive_refr
                 logger.info("met %s: %d stations", parameter, len(stations))
                 fetch = lambda a, b, stations=stations, parameter=parameter: met.fetch_daily(client, a, b, stations, parameter)
                 total += run_ingest(session, fetch, start, end, f"met {parameter}")
+        return total
+    if source == "dmi":
+        with dmi.make_client() as client:
+            for parameter in SOURCE_PARAMETERS[source]:
+                stations = dmi.fetch_stations(client, start, end, parameter)
+                logger.info("dmi %s: %d stations", parameter, len(stations))
+                fetch = lambda a, b, stations=stations, parameter=parameter: dmi.fetch_daily(client, a, b, stations, parameter)
+                total += run_ingest(session, fetch, start, end, f"dmi {parameter}")
         return total
     # SMHI serves whole periods per station, so fetch once and store in date chunks.
     with smhi.make_client() as client:

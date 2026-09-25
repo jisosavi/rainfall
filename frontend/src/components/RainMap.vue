@@ -7,21 +7,17 @@ import { MapboxOverlay } from '@deck.gl/mapbox'
 import { ScatterplotLayer } from '@deck.gl/layers'
 import type { PickingInfo } from '@deck.gl/core'
 import type { Parameter, StationDay } from '../api'
+import { boundsFor, START_BOUNDS, type CountryFilter } from '../lib/countries'
 import { SCALES } from '../lib/scales'
 import { formatValue, t } from '../strings'
 
-const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter }>()
+const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter; focus: CountryFilter }>()
 const emit = defineEmits<{ select: [id: string | null] }>()
 
 const container = ref<HTMLDivElement>()
 let map: maplibregl.Map | undefined
 let overlay: MapboxOverlay | undefined
 
-// Finland, Sweden and mainland Norway; Svalbard and Jan Mayen are one zoom-out away.
-const START_BOUNDS: [[number, number], [number, number]] = [
-  [4.5, 55.2],
-  [31.6, 71.3],
-]
 
 // Keep the start view clear of the overlay panels (see App.vue layout).
 function startPadding() {
@@ -107,7 +103,7 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: container.value!,
     style: 'https://tiles.openfreemap.org/styles/dark',
-    bounds: START_BOUNDS,
+    bounds: props.focus === 'all' ? START_BOUNDS : boundsFor(props.focus),
     fitBoundsOptions: { padding: startPadding() },
     attributionControl: { compact: true, customAttribution: t.attribution },
   })
@@ -127,6 +123,12 @@ onMounted(() => {
   })
   map.addControl(overlay)
 })
+
+// Choosing a country zooms the map to it; "All" returns to the start view.
+watch(
+  () => props.focus,
+  (focus) => map?.fitBounds(boundsFor(focus), { padding: startPadding(), duration: 800 }),
+)
 
 watch(
   () => [props.stations, props.selectedId, props.parameter],

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Parameter, StationDay } from '../api'
 import { SCALES } from '../lib/scales'
+import { countryTag } from '../lib/countries'
 import { formatValue, t } from '../strings'
 
 const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter }>()
@@ -37,7 +38,7 @@ const sorted = computed(() =>
                 class="swatch"
                 :class="{ hollow: !s.has_data }"
                 :style="s.has_data && s.value !== null ? { background: SCALES[parameter].classOf(s.value).color } : {}"
-              /><span class="name">{{ s.name }}</span><span class="tag">{{ t.countryTag[s.source] }}</span>
+              /><span class="name">{{ s.name }}</span><span class="tag">{{ countryTag(s.country) }}</span>
             </td>
             <td class="num">
               <span v-if="s.flag === 'suspect_spatial'" class="suspect" :title="t.suspectLong" :aria-label="t.suspectShort">⚠ </span>{{ formatValue(parameter, s.has_data ? s.value : null) }}

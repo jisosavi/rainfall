@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { NotFoundError, useDates, useStations, type Parameter, type Source } from './api'
 import { useSelectionStore } from './stores/selection'
+import { inCountry } from './lib/countries'
 import { formatDate, t } from './strings'
 import AboutDialog from './components/AboutDialog.vue'
 import CountryFilter from './components/CountryFilter.vue'
@@ -26,12 +27,9 @@ const about = ref<InstanceType<typeof AboutDialog>>()
 const showList = ref(false)
 
 const shownDate = computed(() => stations.data.value?.date ?? date.value)
-const COUNTRY_SOURCE = { fi: 'fmi', no: 'met', se: 'smhi' } as const
 const stationRows = computed(() => {
   const all = stations.data.value?.stations ?? []
-  const selected = country.value
-  if (selected === 'all') return all
-  return all.filter((s) => s.source === COUNTRY_SOURCE[selected])
+  return all.filter((s) => inCountry(country.value, s.country))
 })
 const selectedStation = computed(() => stationRows.value.find((s) => s.id === stationId.value) ?? null)
 const reporting = computed(() => stationRows.value.filter((s) => s.has_data).length)
@@ -55,7 +53,7 @@ function selectStation(id: string | null) {
 
 <template>
   <main class="app" :class="{ 'has-panel': selectedStation }">
-    <RainMap :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectStation" />
+    <RainMap :stations="stationRows" :selected-id="stationId" :parameter="parameter" :focus="country" @select="selectStation" />
 
     <div class="left-column">
       <header class="top panel">

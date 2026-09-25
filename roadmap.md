@@ -21,12 +21,16 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Monitoring: get alerted when the ingestion job fails or data stops arriving, e.g. a check that the latest date is at most 2 days old
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
 
-- [ ] Denmark, Greenland and the Faroe Islands (DMI), then Iceland (IMO). Decided 2026-09-25:
-  - Include Greenland and the Faroe Islands. Greenland's rainfall and snow levels differ greatly from mainland Denmark's; check that the colour scales and the neighbour check (sparse stations) still make sense there.
-  - Iceland: rainfall from automatic stations only (hourly values summed 06–06 UTC); manual 09 UTC stations used for snow depth only.
-  - The country filter zooms the map to the chosen country (default behaviour); the start view stays on the Nordic mainland plus Denmark.
+- [ ] Iceland (IMO). Decided 2026-09-25: rainfall from automatic stations only (hourly values summed 06–06 UTC); manual 09 UTC stations used for snow depth only. Add it to the country filter (zooms to Iceland).
 
 ## Later / ideas
+
+- Germany: official DWD Open Data https://www.dwd.de/EN/ourservices/opendata/opendata.html (climate data at opendata.dwd.de) and the open-source JSON API Bright Sky https://brightsky.dev/docs/#/ built on it. Prefer DWD as the source of record; check licence (believed CC BY 4.0), the daily rainfall window and snow depth.
+- Naming: with the Baltics, Poland and Germany the app would no longer be only "Nordic"; decide on a title (e.g. "Northern Europe weather observations") before adding them.
+- Poland: https://api.meteo.pl/ and https://github.com/mrcnpdlk/weather-api. Note: api.meteo.pl is, as far as known, ICM's (University of Warsaw) forecast-model API, which needs a key; station observations come from IMGW-PIB (https://danepubliczne.imgw.pl, free). Check which gives daily rainfall and snow depth per station, the day definition and licence.
+- Lithuania: https://api.meteo.lt/ (LHMT, the official service). Check how far back station observations go (it may offer only recent hourly data, which we'd sum 06–06 UTC), licence, snow depth and station metadata.
+- Latvia: open data at https://data.gov.lv/dati/lv/dataset/hidrometeorologiskie-noverojumi (LVĢMC hydrometeorological observations, the official source) and the community project https://github.com/kristapsbe/meteo_server (useful as a reference for parsing). Check licence, day definition, snow depth and station metadata as for the other countries.
+- Estonia: weather observations API at https://nordapi.ee/docs/estonia/ee-weather-observations. First confirm who runs it and its licence (the official source is the Estonian Environment Agency, Keskkonnaagentuur / ilmateenistus.ee), then check day definition, snow depth and station metadata as for the other countries.
 
 - Denmark (DMI open data). Checked 2026-09-25:
   - API: `https://opendataapi.dmi.dk` (docs: https://www.dmi.dk/friedata/dokumentation/basics). No key since 2 December 2025; fair use 500 requests per 5 s. `dmi.cma.dk` is a third-party proxy and `dmigw.govcloud.dk` is the old keyed host; use neither.

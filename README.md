@@ -1,8 +1,8 @@
 # Nordic weather observations
 
-Daily rainfall and snow depth at weather stations in Finland, Norway and Sweden on a map, based on open data from FMI, MET Norway and SMHI.
+Daily rainfall and snow depth at weather stations in Finland, Norway, Sweden, Denmark, Greenland and the Faroe Islands on a map, based on open data from FMI, MET Norway, SMHI and DMI.
 
-- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway and SMHI data twice a day.
+- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI and DMI data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
 
@@ -16,7 +16,8 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 backend/
   app/api/routes/   HTTP endpoints
   app/db/           SQLAlchemy models and session
-  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), service.py (shared)
+  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), service.py (shared)
+  app/qc.py         neighbour check and hourly confirmation
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
   Dockerfile, start.sh, railway.json
@@ -39,7 +40,7 @@ cp .env.example .env        # then edit DATABASE_URL
 pytest                      # in-memory SQLite, no database needed
 alembic upgrade head
 uvicorn app.main:app --reload
-python -m app.ingest        # load data; --source fmi|met|smhi|all (default all), optional --start/--end YYYY-MM-DD
+python -m app.ingest        # load data; --source fmi|met|smhi|dmi|all (default all), optional --start/--end YYYY-MM-DD
 ```
 
 After a model change: `alembic revision --autogenerate -m "..."`. Review the generated file before committing it.
@@ -122,7 +123,7 @@ All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_de
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
 
-`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met` or `smhi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, or SMHI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, or `SE`), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
+`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi` or `dmi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
@@ -177,6 +178,15 @@ These were verified against the live API on 2026-09-25.
 - **Snow depth:** parameter `8` ("Snödjup, momentanvärde, kl 06"), a reading at 06 UTC **in metres**, converted to cm. Values carry a timestamp instead of a representative day, and the archive CSV has other columns (`Datum;Tid;Snödjup;Kvalitet`). About 405 active stations. `--archive-refresh` covers snow depth too.
 - **Stations:** SMHI's own plus other owners (municipal networks such as VA Syd, the armed forces), with the owner stored. Names are kept as SMHI writes them, including suffixes such as `A` (automatic). SMHI gives no municipality.
 
+### DMI (Denmark, Greenland, Faroe Islands)
+
+These were verified against the live API on 2026-09-25.
+
+- **Source:** DMI's climateData API, `https://opendataapi.dmi.dk/v2/climateData`. No registration or key; fair use 500 requests per 5 s.
+- **Rainfall:** always the **sum of the 24 hourly `acc_precip` values** from 06 UTC on D to 06 UTC on D+1; missing hours are scattered outages, so a day with 23 of 24 hours counts (`raw_status` e.g. `4.2|hourly23`); with 22 or fewer it is missing. Stations with no hourly data in a period (e.g. Greenland's inactive manual stations) get no rows for it. DMI's own daily totals can't be used: mainland Danish ones cover the local calendar day, and the labels aren't reliable (Faroese daily values labelled 06–06 UTC equal the hourly sum over 00–24 UTC; Greenland's match 06–06 UTC).
+- **Snow depth:** daily `snow_depth` (cm) from 06 UTC on D, stored under D. Denmark only (about 92 stations, mostly manual); Greenland and the Faroe Islands have none in this data. Reported days only.
+- **Stations:** about 137 with rainfall (113 Denmark, 20 Greenland, 4 Faroe Islands), of which about 118 have hourly data. Owner (DMI, Forsvaret, Mittafik/Grønlandske lufthavne, harbours…) and height come from the station list. Greenland's manual stations report no recent data.
+
 ### Plausibility limits (all sources)
 
 Values above **300 mm of rain per day** or **600 cm of snow** are stored as missing, whatever the source's quality flag says; the original value stays in `raw_status` with `|implausible`. Both limits are well above Nordic records. This caught SMHI's Söråker station (Sundsvalls kommun), whose feed reported 17,280 mm a day with quality `Y` in 2026. Migration `0005` applied the rule to already stored rows.
@@ -190,13 +200,13 @@ After every ingestion, `app/qc.py` compares unusually high values with the same 
 | Rainfall | 30 mm | within 50 km | > 3 × highest neighbour + 20 mm | 3 neighbours with data |
 | Snow depth | 50 cm | within 30 km **and ±300 m altitude** | > 3 × highest neighbour + 50 cm | 3 neighbours with data |
 
-Flagged **rainfall** is then checked against the station's own hourly readings (FMI `PRA_PT1H_ACC`, Frost `sum(precipitation_amount PT1H)`, SMHI parameter 7). If they add up to the daily value (within 5 mm or 20%), the storm was real: the flag becomes `confirmed_hourly`, the value is ranked as normal, and the panel notes it. Stations without hourly data (mostly manual) keep the flag. On 2025–2026 data this confirmed 5 of 17 flags, e.g. Nurmes Valtimo 44 mm with 37 mm in one hour; Torpshammar A's 76 mm stayed flagged, its hours adding up to only 40 mm.
+Flagged **rainfall** is then checked against the station's own hourly readings (FMI `PRA_PT1H_ACC`, Frost `sum(precipitation_amount PT1H)`, SMHI parameter 7, DMI hourly `acc_precip`). If they add up to the daily value (within 5 mm or 20%), the storm was real: the flag becomes `confirmed_hourly`, the value is ranked as normal, and the panel notes it. Stations without hourly data (mostly manual) keep the flag. On 2025–2026 data this confirmed 5 of 17 flags, e.g. Nurmes Valtimo 44 mm with 37 mm in one hour; Torpshammar A's 76 mm stayed flagged, its hours adding up to only 40 mm.
 
 Comparing with the highest neighbour protects real local downpours (e.g. 114 mm in Multia, July 2026, is not flagged). The altitude window keeps mountain stations from being compared with valleys; altitude (`stations.elevation_m`) comes from MET Norway and SMHI, FMI's daily data has none. On 2025–2026 data it flags about 17 rainfall and 90 snow values. Run it by hand with `python -m app.ingest --qc-only --start YYYY-MM-DD`.
 
 ### Licences
 
-FMI, MET Norway and SMHI open data are all CC BY 4.0 (MET Norway also under NLOD 2.0). All three are credited in the map attribution and in the About dialog. Because we process the data (quality filtering, date alignment, missing-day rows), the About dialog says so, as SMHI's terms require.
+FMI, MET Norway, SMHI and DMI open data are all CC BY 4.0 (MET Norway also under NLOD 2.0). All four are credited in the map attribution and in the About dialog. Because we process the data (quality filtering, date alignment, missing-day rows), the About dialog says so, as SMHI's terms require.
 
 ## Licence
 
@@ -204,4 +214,4 @@ Copyright © 2026 Janne Isosävi
 
 The code is licensed under the [GNU General Public License v3.0 or later](LICENSE). You may use, change and share it, but versions you distribute must stay under the same licence and include their source code.
 
-The rainfall data comes from the Finnish Meteorological Institute, MET Norway and SMHI and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.
+The rainfall data comes from the Finnish Meteorological Institute, MET Norway, SMHI and DMI and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.

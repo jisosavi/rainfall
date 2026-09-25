@@ -24,7 +24,7 @@ class StationSeries:
     """One station's daily values, already normalized and dated by our convention:
     a value stored under date D covers 06 UTC on D to 06 UTC on D+1."""
 
-    source: str  # "fmi", "met" or "smhi"
+    source: str  # "fmi", "met", "smhi" or "dmi"
     source_station_id: str
     name: str
     region: str | None

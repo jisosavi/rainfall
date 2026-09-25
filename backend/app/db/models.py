@@ -25,7 +25,8 @@ class Station(Base):
     __table_args__ = (UniqueConstraint("source", "source_station_id", name="uq_stations_source_station"),)
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    # Data source: "fmi" (Finland), "met" (MET Norway) or "smhi" (Sweden).
+    # Data source: "fmi" (Finland), "met" (MET Norway), "smhi" (Sweden) or "dmi" (Denmark,
+    # Greenland, Faroe Islands).
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="fmi", server_default="fmi")
     # The source's own station id: FMI fmisid (e.g. "100971") or Frost id (e.g. "SN18700").
     source_station_id: Mapped[str] = mapped_column(String(64), nullable=False)

@@ -1,18 +1,31 @@
 <script setup lang="ts">
-import type { CountryFilter } from '../stores/selection'
+import { COUNTRIES, type CountryFilter } from '../lib/countries'
 import { t } from '../strings'
-import SegmentedControl from './SegmentedControl.vue'
 
+// A drop-down: with Denmark, Greenland and the Faroe Islands there are too many for buttons.
 const model = defineModel<CountryFilter>({ required: true })
-
-const options: Array<{ value: CountryFilter; label: string }> = [
-  { value: 'all', label: t.countryAll },
-  { value: 'fi', label: t.countryFinland },
-  { value: 'no', label: t.countryNorway },
-  { value: 'se', label: t.countrySweden },
-]
 </script>
 
 <template>
-  <SegmentedControl v-model="model" :options="options" :label="t.countryFilter" />
+  <label class="country-filter">
+    <span class="visually-hidden">{{ t.countryFilter }}</span>
+    <select v-model="model">
+      <option value="all">{{ t.countryAll }}</option>
+      <option v-for="c in COUNTRIES" :key="c.key" :value="c.key">{{ c.label }}</option>
+    </select>
+  </label>
 </template>
+
+<style scoped>
+select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color-scheme: dark;
+  cursor: pointer;
+}
+</style>

@@ -1,7 +1,7 @@
 import { computed, ref, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 
-export type Source = 'fmi' | 'met' | 'smhi'
+export type Source = 'fmi' | 'met' | 'smhi' | 'dmi'
 export type Parameter = 'precipitation' | 'snow_depth'
 
 export interface StationDay {
