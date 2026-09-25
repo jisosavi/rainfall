@@ -11,10 +11,11 @@ Facts verified against the live API (2026-09):
 import logging
 import time
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 
 import httpx
+
+from app.ingest.common import Normalized, StationSeries
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ WFS_URL = "https://opendata.fmi.fi/wfs"
 STORED_QUERY = "fmi::observations::weather::daily::timevaluepair"
 # Covers all of Finland including Åland and Lapland (lon,lat,lon,lat).
 FINLAND_BBOX = "19,59,32,71"
-CHUNK_DAYS = 31
+SOURCE = "fmi"
 
 NS = {
     "wfs": "http://www.opengis.net/wfs/2.0",
@@ -32,23 +33,6 @@ NS = {
 }
 FMISID_CODESPACE = "http://xml.fmi.fi/namespace/stationcode/fmisid"
 NAME_CODESPACE = "http://xml.fmi.fi/namespace/locationcode/name"
-
-
-@dataclass
-class StationSeries:
-    fmisid: str
-    name: str
-    region: str | None
-    lat: float
-    lon: float
-    values: list[tuple[date, str]] = field(default_factory=list)  # (label date, raw value text)
-
-
-@dataclass(frozen=True)
-class Normalized:
-    precipitation_mm: float | None
-    has_data: bool
-    raw_status: str
 
 
 def normalize(raw: str) -> Normalized:
@@ -88,22 +72,23 @@ def parse_timevaluepair(xml: bytes | str) -> list[StationSeries]:
         region = location.findtext("target:region", default=None, namespaces=NS)
         lat, lon = (float(x) for x in pos.text.split()[:2])
 
-        series = StationSeries(fmisid=fmisid.strip(), name=name.strip(), region=region.strip() if region else None, lat=lat, lon=lon)
+        series = StationSeries(
+            source=SOURCE,
+            source_station_id=fmisid.strip(),
+            name=name.strip(),
+            region=region.strip() if region else None,
+            lat=lat,
+            lon=lon,
+            country="FI",
+        )
         for tvp in member.iterfind(".//wml2:MeasurementTVP", NS):
             time_text = tvp.findtext("wml2:time", namespaces=NS)
             value_text = tvp.findtext("wml2:value", namespaces=NS)
             if time_text and value_text is not None:
-                series.values.append((date.fromisoformat(time_text.strip()[:10]), value_text))
+                # FMI's label date already matches our convention (06 UTC on D to 06 UTC on D+1).
+                series.values.append((date.fromisoformat(time_text.strip()[:10]), normalize(value_text)))
         stations.append(series)
     return stations
-
-
-def date_chunks(start: date, end: date, days: int = CHUNK_DAYS):
-    current = start
-    while current <= end:
-        chunk_end = min(current + timedelta(days=days - 1), end)
-        yield current, chunk_end
-        current = chunk_end + timedelta(days=1)
 
 
 def fetch_daily(client: httpx.Client, start: date, end: date, retries: int = 3) -> list[StationSeries]:

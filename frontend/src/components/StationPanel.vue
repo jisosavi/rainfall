@@ -21,7 +21,7 @@ const swatch = computed(() =>
   <aside class="station-panel panel" :aria-label="station.name">
     <header>
       <div>
-        <h2>{{ station.name }}</h2>
+        <h2>{{ station.name }} <span class="tag">{{ t.countryTag[station.source] }}</span></h2>
         <p class="date">{{ formatDate(station.date) }}</p>
       </div>
       <button type="button" class="icon" :aria-label="t.close" :title="t.close" @click="emit('close')">×</button>
@@ -46,7 +46,7 @@ const swatch = computed(() =>
 
     <dl class="meta">
       <div v-if="station.region"><dt>{{ t.region }}</dt><dd>{{ station.region }}</dd></div>
-      <div><dt>{{ t.fmisid }}</dt><dd>{{ station.source_station_id }}</dd></div>
+      <div><dt>{{ t.stationId }}</dt><dd>{{ station.source_station_id }} · {{ t.sourceName[station.source] }}</dd></div>
       <div><dt>{{ t.coordinates }}</dt><dd>{{ station.lat.toFixed(3) }}° N, {{ station.lon.toFixed(3) }}° E</dd></div>
     </dl>
     <p class="note">{{ t.measurementNote }}</p>
@@ -71,6 +71,15 @@ h2 {
   margin: 0;
   font-size: 18px;
   line-height: 1.25;
+}
+.tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  vertical-align: 2px;
 }
 .date {
   margin: 2px 0 0;

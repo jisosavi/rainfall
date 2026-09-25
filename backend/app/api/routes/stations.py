@@ -38,6 +38,7 @@ def _resolve_date(db: Session, date_value: date | None) -> date:
 def _station_day(station: Station, day: date, record: DailyPrecipitation | None) -> StationDay:
     return StationDay(
         id=station.id,
+        source=station.source,
         source_station_id=station.source_station_id,
         name=station.name,
         lat=station.lat,

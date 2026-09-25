@@ -17,10 +17,19 @@ const container = ref<HTMLDivElement>()
 let map: maplibregl.Map | undefined
 let overlay: MapboxOverlay | undefined
 
-const FINLAND_BOUNDS: [[number, number], [number, number]] = [
-  [19.0, 59.6],
-  [31.6, 70.1],
+// Mainland Norway and Finland; Svalbard and Jan Mayen are one zoom-out away.
+const START_BOUNDS: [[number, number], [number, number]] = [
+  [4.5, 57.8],
+  [31.6, 71.3],
 ]
+
+// Keep the start view clear of the overlay panels (see App.vue layout).
+function startPadding() {
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    return { top: 210, bottom: 16, left: 8, right: 8 } // header card on top
+  }
+  return { top: 16, bottom: 16, left: 392, right: 16 } // 360 px left column + gutters
+}
 const MAP_SURFACE: [number, number, number, number] = [12, 12, 12, 255]
 const WHITE: [number, number, number, number] = [255, 255, 255, 235]
 
@@ -29,26 +38,50 @@ function drawOrder(stations: StationDay[]): StationDay[] {
   return [...stations].sort((a, b) => (a.precipitation_mm ?? -1) - (b.precipitation_mm ?? -1))
 }
 
-function buildLayer() {
+function buildLayers() {
   const selected = props.selectedId
+  const selectedStation = props.stations.find((s) => s.id === selected)
+  return [stationsLayer(), ...(selectedStation ? [selectionRing(selectedStation)] : [])]
+}
+
+// Fixed-size white ring on top of the selected station, independent of zoom.
+function selectionRing(station: StationDay) {
+  return new ScatterplotLayer<StationDay>({
+    id: 'selection',
+    data: [station],
+    getPosition: (d) => [d.lon, d.lat],
+    radiusUnits: 'pixels',
+    getRadius: 10,
+    stroked: true,
+    filled: false,
+    lineWidthUnits: 'pixels',
+    getLineWidth: 2.5,
+    getLineColor: WHITE,
+  })
+}
+
+function stationsLayer() {
   return new ScatterplotLayer<StationDay>({
     id: 'stations',
     data: drawOrder(props.stations),
     getPosition: (d) => [d.lon, d.lat],
-    radiusUnits: 'pixels',
-    getRadius: (d) => (d.id === selected ? 9 : 6),
+    // Radius in metres, so circles shrink when zoomed out (dense southern Norway) and grow
+    // to full size when zoomed in; clamped to stay visible and clickable.
+    radiusUnits: 'meters',
+    getRadius: 6000,
+    radiusMinPixels: 4.5,
+    radiusMaxPixels: 7,
     stroked: true,
     filled: true,
     lineWidthUnits: 'pixels',
-    getLineWidth: (d) => (d.id === selected ? 3 : d.has_data ? 1.5 : 2),
+    getLineWidth: (d) => (d.has_data ? 1.5 : 2),
     getFillColor: (d) =>
       d.has_data && d.precipitation_mm !== null ? [...rainClass(d.precipitation_mm).rgb, 255] : [0, 0, 0, 0],
     // Filled circles get a thin ring in the map colour so overlapping stations stay separate.
-    getLineColor: (d) => (d.id === selected || !d.has_data ? WHITE : MAP_SURFACE),
+    getLineColor: (d) => (d.has_data ? MAP_SURFACE : WHITE),
     pickable: true,
     autoHighlight: true,
     highlightColor: [255, 255, 255, 60],
-    updateTriggers: { getRadius: selected, getLineWidth: selected, getLineColor: selected },
   })
 }
 
@@ -71,14 +104,20 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: container.value!,
     style: 'https://tiles.openfreemap.org/styles/dark',
-    bounds: FINLAND_BOUNDS,
-    fitBoundsOptions: { padding: 24 },
+    bounds: START_BOUNDS,
+    fitBoundsOptions: { padding: startPadding() },
     attributionControl: { compact: true, customAttribution: t.attribution },
   })
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
+  // On small screens the credits would cover the legend; start collapsed behind the ⓘ button.
+  map.once('load', () => {
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      container.value?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
+    }
+  })
 
   overlay = new MapboxOverlay({
-    layers: [buildLayer()],
+    layers: buildLayers(),
     getTooltip: tooltip,
     onClick: (info) => emit('select', (info.object as StationDay | undefined)?.id ?? null),
     getCursor: ({ isHovering }) => (isHovering ? 'pointer' : 'grab'),
@@ -88,7 +127,7 @@ onMounted(() => {
 
 watch(
   () => [props.stations, props.selectedId],
-  () => overlay?.setProps({ layers: [buildLayer()] }),
+  () => overlay?.setProps({ layers: buildLayers() }),
 )
 
 onBeforeUnmount(() => {

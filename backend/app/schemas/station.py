@@ -8,6 +8,7 @@ class StationDay(BaseModel):
     """One station on one date — the object the map and detail panel consume."""
 
     id: UUID
+    source: str
     source_station_id: str
     name: str
     lat: float

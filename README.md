@@ -1,8 +1,8 @@
 # Rainfall
 
-Daily rainfall at Finnish weather stations on a map, based on FMI open data.
+Daily rainfall at weather stations in Finland and Norway on a map, based on open data from FMI and MET Norway.
 
-- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI data once or twice a day.
+- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI and MET Norway data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
 
@@ -16,7 +16,7 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 backend/
   app/api/routes/   HTTP endpoints
   app/db/           SQLAlchemy models and session
-  app/ingest/       FMI ingestion (python -m app.ingest)
+  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), service.py (shared)
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
   Dockerfile, start.sh, railway.json
@@ -37,7 +37,7 @@ cp .env.example .env        # then edit DATABASE_URL
 pytest                      # in-memory SQLite, no database needed
 alembic upgrade head
 uvicorn app.main:app --reload
-python -m app.ingest        # load FMI data
+python -m app.ingest        # load data; --source fmi|met|all (default all)
 ```
 
 After a model change: `alembic revision --autogenerate -m "..."`. Review the generated file before committing it.
@@ -52,6 +52,7 @@ After a model change: `alembic revision --autogenerate -m "..."`. Review the gen
 | `APP_ENV` | web | `production` on Railway. Not used by the code yet. |
 | `INGEST_START_DATE` | ingest | First date loaded into an empty database. Default `2025-01-01`. |
 | `INGEST_REFETCH_DAYS` | ingest | Recent days re-fetched on every run. Default `10`. |
+| `FROST_CLIENT_ID` | ingest | MET Norway Frost client ID ([register free](https://frost.met.no/auth/requestCredentials.html)). Without it, MET is skipped. The client secret is not needed. Never commit it. |
 
 ## Deployment (Railway)
 
@@ -68,7 +69,7 @@ One project with three services:
   - Start Command `python -m app.ingest`
   - Cron Schedule `15 7,13 * * *` (UTC)
   - Restart Policy Never
-  - Variable: `DATABASE_URL`
+  - Variables: `DATABASE_URL`, `FROST_CLIENT_ID`
 
 Pushing to `main` redeploys both services.
 
@@ -103,16 +104,20 @@ If the site moves to a new path, change `VITE_BASE`. If it moves to a new domain
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
 
-`StationDay` has these fields: `id` (UUID), `source_station_id` (FMI fmisid), `name`, `lat`, `lon`, `country`, `region`, `date`, `precipitation_mm`, `has_data`.
+`StationDay` has these fields: `id` (UUID), `source` (`fmi` or `met`), `source_station_id` (FMI fmisid, or Frost id such as `SN18700`), `name`, `lat`, `lon`, `country` (`FI`, `NO`, or `SJ` for Svalbard and Jan Mayen), `region`, `date`, `precipitation_mm`, `has_data`.
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
-## FMI data conventions
+## Data conventions
+
+Every stored date D means the same 24 hours in both countries: **06 UTC on D to 06 UTC on D+1**.
+
+### FMI (Finland)
 
 These were verified against the live API on 2026-09-25.
 
 - **Source:** WFS stored query `fmi::observations::weather::daily::timevaluepair`, parameter `rrday`, bbox `19,59,32,71`. `region` is FMI's municipality name.
-- **Date:** a value labelled date D covers **06 UTC on D to 06 UTC on D+1**. It's stored under D, the same date FMI uses. So yesterday's value exists only after 06 UTC today.
+- **Date:** a value labelled date D covers 06 UTC on D to 06 UTC on D+1. It's stored under D, the same date FMI uses. So yesterday's value exists only after 06 UTC today.
 - **Values:**
 
   | FMI value | Meaning | Stored as |
@@ -127,7 +132,20 @@ These were verified against the live API on 2026-09-25.
   - `precipitation_mm >= 0`
   - `(station_id, date)` is unique
 - **Coverage:** about 189 stations since 2025, with about 172 reporting on a given day.
-- **Licence:** FMI open data is CC BY 4.0. The credit is shown in the map attribution and in the About dialog.
+
+### MET Norway (Norway, Svalbard, Jan Mayen)
+
+These were verified against the live API on 2026-09-25.
+
+- **Source:** Frost API, element `sum(precipitation_amount P1D)`, `timeoffsets=PT6H`. Series ending at 18 UTC (`PT18H`) cover a different window and are not used. Frost also lists stations abroad; only `NO` and `SJ` are kept.
+- **Date:** Frost labels a value by the day its window **ends**: label D covers 06 UTC on D-1 to 06 UTC on D. **It's stored under D-1.** This was checked two ways: against hourly sums at 5 stations, and against Finnish neighbours near the border, which agree best with this alignment (0.9 mm average difference, against about 2.4 mm one day off).
+- **Values:** Frost already turns "no precipitation" (`-1`) into `0.0`. Quality codes 0–4 are kept; 5 and above are treated as missing. Frost has no missing-value marker, so a day without a value becomes a `has_data = false` row. `raw_status` holds the value and quality code, e.g. `14.9|q0`, or `missing`.
+- **Names:** Frost's upper-case names are shown in normal capitalisation, e.g. "Oslo - Blindern". `region` is the municipality, or the county if there's no municipality.
+- **Coverage:** about 707 stations with data in 2026, about 610 reporting on a given day.
+
+### Licences
+
+FMI and MET Norway open data are both CC BY 4.0 (MET Norway also under NLOD 2.0). Both are credited in the map attribution and in the About dialog.
 
 ## Licence
 
@@ -135,4 +153,4 @@ Copyright © 2026 Janne Isosävi
 
 The code is licensed under the [GNU General Public License v3.0 or later](LICENSE). You may use, change and share it, but versions you distribute must stay under the same licence and include their source code.
 
-The rainfall data comes from the Finnish Meteorological Institute and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit FMI when you use it.
+The rainfall data comes from the Finnish Meteorological Institute and MET Norway and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.

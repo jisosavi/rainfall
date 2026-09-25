@@ -6,7 +6,9 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db.models import DailyPrecipitation, Station
-from app.ingest.fmi import date_chunks, normalize, parse_timevaluepair
+from app.ingest import fmi
+from app.ingest.common import date_chunks
+from app.ingest.fmi import normalize, parse_timevaluepair
 from app.ingest.service import default_range, run_ingest, store_series
 
 FIXTURE = (Path(__file__).parent / "fixtures" / "fmi_daily_timevaluepair.xml").read_bytes()
@@ -14,14 +16,16 @@ FIXTURE = (Path(__file__).parent / "fixtures" / "fmi_daily_timevaluepair.xml").r
 
 def test_parse_real_fmi_response():
     stations = parse_timevaluepair(FIXTURE)
-    by_id = {s.fmisid: s for s in stations}
+    by_id = {s.source_station_id: s for s in stations}
     assert set(by_id) == {"100908", "101049", "100963"}
     uto = by_id["100908"]
     assert uto.name == "Parainen Utö"
     assert uto.region == "Parainen"
     assert (uto.lat, uto.lon) == (59.77909, 21.37479)
+    assert (uto.source, uto.country) == ("fmi", "FI")
     assert [d for d, _ in uto.values] == [date(2026, 9, 20), date(2026, 9, 21), date(2026, 9, 22)]
-    assert [v for _, v in by_id["100963"].values] == ["0.7", "0.0", "NaN"]
+    assert [v.raw_status for _, v in by_id["100963"].values] == ["0.7", "0.0", "NaN"]
+    assert [v.precipitation_mm for _, v in by_id["100963"].values] == [0.7, 0.0, None]
 
 
 @pytest.mark.parametrize(
@@ -49,8 +53,8 @@ def test_store_series_is_idempotent_and_updates(db):
     assert db.scalar(select(func.count()).select_from(DailyPrecipitation)) == 9
 
     # A later fetch fills in the missing value.
-    lohja = next(s for s in series if s.fmisid == "100963")
-    lohja.values = [(date(2026, 9, 22), "2.4")]
+    lohja = next(s for s in series if s.source_station_id == "100963")
+    lohja.values = [(date(2026, 9, 22), normalize("2.4"))]
     store_series(db, [lohja])
     row = db.execute(
         select(DailyPrecipitation).join(Station).where(Station.source_station_id == "100963", DailyPrecipitation.date == date(2026, 9, 22))
@@ -68,9 +72,11 @@ def test_date_chunks():
 
 def test_default_range(db):
     today = date(2026, 9, 25)
-    assert default_range(db, date(2025, 1, 1), 10, today) == (date(2025, 1, 1), date(2026, 9, 24))
-    store_series(db, parse_timevaluepair(FIXTURE))  # latest row 2026-09-22
-    assert default_range(db, date(2025, 1, 1), 10, today) == (date(2026, 9, 12), date(2026, 9, 24))
+    assert default_range(db, "fmi", date(2025, 1, 1), 10, today) == (date(2025, 1, 1), date(2026, 9, 24))
+    store_series(db, parse_timevaluepair(FIXTURE))  # latest FMI row 2026-09-22
+    assert default_range(db, "fmi", date(2025, 1, 1), 10, today) == (date(2026, 9, 12), date(2026, 9, 24))
+    # Each source tracks its own progress.
+    assert default_range(db, "met", date(2025, 1, 1), 10, today) == (date(2025, 1, 1), date(2026, 9, 24))
 
 
 def test_run_ingest_with_mocked_fmi(db):
@@ -81,7 +87,7 @@ def test_run_ingest_with_mocked_fmi(db):
         return httpx.Response(200, content=FIXTURE)
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        total = run_ingest(db, client, date(2026, 8, 1), date(2026, 9, 22))
+        total = run_ingest(db, lambda a, b: fmi.fetch_daily(client, a, b), date(2026, 8, 1), date(2026, 9, 22))
 
     assert len(requests) == 2  # two 31-day chunks
     assert requests[0]["parameters"] == "rrday"

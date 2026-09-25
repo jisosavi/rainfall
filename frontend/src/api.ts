@@ -1,8 +1,11 @@
 import { computed, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 
+export type Source = 'fmi' | 'met'
+
 export interface StationDay {
   id: string
+  source: Source
   source_station_id: string
   name: string
   lat: number

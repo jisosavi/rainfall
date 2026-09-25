@@ -5,13 +5,14 @@ import { NotFoundError, useDates, useStations } from './api'
 import { useSelectionStore } from './stores/selection'
 import { formatDate, t } from './strings'
 import AboutDialog from './components/AboutDialog.vue'
+import CountryFilter from './components/CountryFilter.vue'
 import DateControl from './components/DateControl.vue'
 import MapLegend from './components/MapLegend.vue'
 import RainMap from './components/RainMap.vue'
 import StationList from './components/StationList.vue'
 import StationPanel from './components/StationPanel.vue'
 
-const { date, stationId } = storeToRefs(useSelectionStore())
+const { date, stationId, country } = storeToRefs(useSelectionStore())
 const stations = useStations(date)
 const dates = useDates()
 
@@ -19,7 +20,13 @@ const about = ref<InstanceType<typeof AboutDialog>>()
 const showList = ref(false)
 
 const shownDate = computed(() => stations.data.value?.date ?? date.value)
-const stationRows = computed(() => stations.data.value?.stations ?? [])
+const COUNTRY_SOURCE = { fi: 'fmi', no: 'met' } as const
+const stationRows = computed(() => {
+  const all = stations.data.value?.stations ?? []
+  const selected = country.value
+  if (selected === 'all') return all
+  return all.filter((s) => s.source === COUNTRY_SOURCE[selected])
+})
 const selectedStation = computed(() => stationRows.value.find((s) => s.id === stationId.value) ?? null)
 const reporting = computed(() => stationRows.value.filter((s) => s.has_data).length)
 
@@ -57,6 +64,9 @@ function selectStation(id: string | null) {
             {{ formatDate(shownDate) }} ·
             {{ stationRows.length ? t.stationsWithData(reporting, stationRows.length) : t.noStationsForDate }}
           </p>
+        </div>
+        <div class="controls-row">
+          <CountryFilter v-model="country" />
           <button type="button" class="small" :aria-pressed="showList" @click="showList = !showList">
             {{ showList ? t.hideList : t.showList }}
           </button>
@@ -120,6 +130,12 @@ h1 {
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--text-secondary);
+}
+.controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 .status-row {
   display: flex;

@@ -22,9 +22,13 @@ from app.db.base import Base
 class Station(Base):
     __tablename__ = "stations"
 
+    __table_args__ = (UniqueConstraint("source", "source_station_id", name="uq_stations_source_station"),)
+
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    # FMI station id (fmisid). Stored as text so other sources can be added later.
-    source_station_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    # Data source: "fmi" (Finland) or "met" (MET Norway).
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="fmi", server_default="fmi")
+    # The source's own station id: FMI fmisid (e.g. "100971") or Frost id (e.g. "SN18700").
+    source_station_id: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     lat: Mapped[float] = mapped_column(Double, nullable=False)
     lon: Mapped[float] = mapped_column(Double, nullable=False)

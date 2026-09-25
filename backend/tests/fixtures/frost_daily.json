@@ -1,0 +1,264 @@
+{
+ "availableTimeSeries": {
+  "data": [
+   {
+    "sourceId": "SN18700:0",
+    "validFrom": "1937-03-01T00:00:00.000Z",
+    "timeOffset": "PT6H",
+    "timeResolution": "P1D",
+    "timeSeriesId": 0,
+    "elementId": "sum(precipitation_amount P1D)",
+    "unit": "mm",
+    "performanceCategory": "C",
+    "exposureCategory": "2",
+    "status": "Authoritative"
+   },
+   {
+    "sourceId": "SN99840:0",
+    "validFrom": "1974-08-23T00:00:00.000Z",
+    "timeOffset": "PT6H",
+    "timeResolution": "P1D",
+    "timeSeriesId": 0,
+    "elementId": "sum(precipitation_amount P1D)",
+    "unit": "mm",
+    "performanceCategory": "C",
+    "exposureCategory": "2",
+    "status": "Authoritative"
+   }
+  ]
+ },
+ "sources": {
+  "data": [
+   {
+    "@type": "SensorSystem",
+    "id": "SN18700",
+    "name": "OSLO - BLINDERN",
+    "country": "Norge",
+    "countryCode": "NO",
+    "geometry": {
+     "@type": "Point",
+     "coordinates": [
+      10.72,
+      59.9423
+     ],
+     "nearest": false
+    },
+    "masl": 94,
+    "validFrom": "1931-01-01T00:00:00.000Z",
+    "county": "OSLO",
+    "municipality": "OSLO"
+   },
+   {
+    "@type": "SensorSystem",
+    "id": "SN201300",
+    "name": "RITSEM",
+    "country": "Sverige",
+    "countryCode": "SE",
+    "geometry": {
+     "@type": "Point",
+     "coordinates": [
+      17.4712,
+      67.727
+     ],
+     "nearest": false
+    },
+    "masl": 542,
+    "validFrom": "1997-09-01T00:00:00.000Z",
+    "municipality": "JOKKMOKK"
+   },
+   {
+    "@type": "SensorSystem",
+    "id": "SN99840",
+    "name": "SVALBARD LUFTHAVN",
+    "country": "Svalbard og Jan Mayen",
+    "countryCode": "SJ",
+    "geometry": {
+     "@type": "Point",
+     "coordinates": [
+      15.5015,
+      78.2453
+     ],
+     "nearest": false
+    },
+    "masl": 28,
+    "validFrom": "1964-10-16T00:00:00.000Z",
+    "county": "SVALBARD",
+    "municipality": "SVALBARD"
+   }
+  ]
+ },
+ "observations": {
+  "data": [
+   {
+    "sourceId": "SN18700:0",
+    "referenceTime": "2026-09-15T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 1.2,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN18700:0",
+    "referenceTime": "2026-09-16T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 14.9,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN18700:0",
+    "referenceTime": "2026-09-17T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0.7,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN18700:0",
+    "referenceTime": "2026-09-18T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 11.4,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN18700:0",
+    "referenceTime": "2026-09-19T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0.5,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN99840:0",
+    "referenceTime": "2026-09-15T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0.4,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN99840:0",
+    "referenceTime": "2026-09-16T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN99840:0",
+    "referenceTime": "2026-09-17T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0.5,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN99840:0",
+    "referenceTime": "2026-09-18T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   },
+   {
+    "sourceId": "SN99840:0",
+    "referenceTime": "2026-09-19T00:00:00.000Z",
+    "observations": [
+     {
+      "elementId": "sum(precipitation_amount P1D)",
+      "value": 0,
+      "unit": "mm",
+      "timeOffset": "PT6H",
+      "timeResolution": "P1D",
+      "timeSeriesId": 0,
+      "performanceCategory": "C",
+      "exposureCategory": "2",
+      "qualityCode": 0
+     }
+    ]
+   }
+  ]
+ }
+}

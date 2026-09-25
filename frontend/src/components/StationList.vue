@@ -37,7 +37,7 @@ const sorted = computed(() =>
                 class="swatch"
                 :class="{ hollow: !s.has_data }"
                 :style="s.has_data && s.precipitation_mm !== null ? { background: rainClass(s.precipitation_mm).color } : {}"
-              />{{ s.name }}
+              /><span class="name">{{ s.name }}</span><span class="tag">{{ t.countryTag[s.source] }}</span>
             </td>
             <td class="num">{{ s.has_data ? formatMm(s.precipitation_mm) : t.noData }}</td>
           </tr>
@@ -102,6 +102,13 @@ tbody tr:focus-visible {
 }
 tr.selected {
   background: var(--surface-raised);
+}
+.name {
+  flex: 1;
+}
+.tag {
+  font-size: 10px;
+  color: var(--text-muted);
 }
 .swatch {
   width: 10px;

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.routes.health import router as health_router
 from app.api.routes.stations import router as stations_router
@@ -9,6 +10,8 @@ settings = get_settings()
 
 app = FastAPI(title="Rainfall API", version="0.1.0")
 
+# /api/stations returns ~900 stations; compress JSON responses.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

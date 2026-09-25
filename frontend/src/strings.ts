@@ -1,7 +1,7 @@
 // All user-facing text (UK English), kept in one place so it can be translated later.
 export const t = {
-  title: 'Rainfall in Finland',
-  subtitle: 'Daily precipitation at FMI weather stations',
+  title: 'Rainfall in Finland and Norway',
+  subtitle: 'Daily precipitation at FMI and MET Norway weather stations',
   loading: 'Loading…',
   loadError: 'Could not load rainfall data. Please try again later.',
   noDataYet: 'No rainfall data available yet.',
@@ -18,7 +18,7 @@ export const t = {
   noData: 'No data',
   close: 'Close',
   region: 'Municipality',
-  fmisid: 'FMI station ID',
+  stationId: 'Station ID',
   coordinates: 'Coordinates',
   last30Days: 'Last 30 days',
   total: 'Total',
@@ -26,14 +26,16 @@ export const t = {
   measurementNote: 'Each daily value is the total from 06:00 UTC on that date to 06:00 UTC the next day.',
   legendTitle: 'Rainfall per day',
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
-  attribution: 'Data: Finnish Meteorological Institute open data (CC BY 4.0)',
+  attribution: 'Data: Finnish Meteorological Institute and MET Norway (CC BY 4.0)',
   aboutButton: 'About Rainfall',
   aboutTitle: 'About Rainfall',
   aboutBody:
-    'Rainfall shows the daily precipitation measured at Finnish weather stations on a map. Pick a date to see how much it rained where, and select a station for its recent history.',
+    'Rainfall shows the daily precipitation measured at weather stations in Finland and Norway on a map. Pick a date to see how much it rained where, and select a station for its recent history.',
   aboutDataPrefix: 'Rainfall data is provided by the',
-  aboutDataLink: 'Finnish Meteorological Institute (FMI) open data',
-  aboutDataSuffix: 'under the CC BY 4.0 licence.',
+  aboutDataLink: 'Finnish Meteorological Institute (FMI)',
+  aboutDataAnd: 'and',
+  aboutMetLink: 'MET Norway',
+  aboutDataSuffix: 'as open data under the CC BY 4.0 licence.',
   aboutDeveloperPrefix: 'Developed by',
   developerName: 'Janne Isosävi',
   developerUrl: 'https://github.com/jisosavi',
@@ -43,6 +45,13 @@ export const t = {
   feedbackUrl: 'https://github.com/jisosavi/rainfall/issues/new/choose',
   sourceUrl: 'https://github.com/jisosavi/rainfall',
   fmiOpenDataUrl: 'https://en.ilmatieteenlaitos.fi/open-data',
+  metOpenDataUrl: 'https://frost.met.no',
+  countryFilter: 'Country',
+  countryAll: 'All',
+  countryFinland: 'Finland',
+  countryNorway: 'Norway',
+  sourceName: { fmi: 'FMI', met: 'MET Norway' },
+  countryTag: { fmi: 'FI', met: 'NO' },
 }
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })

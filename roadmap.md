@@ -16,6 +16,8 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Later / ideas
 
+- Sweden (SMHI open data), using the same per-source design as FMI and MET Norway
+
 - Finnish terrain base map (an API key is available). Check whether the extra detail helps readability.
 - Monthly and yearly totals per station, and a map view for them
 - Move the frontend from `/test/rainfall/` to its final address, updating `VITE_BASE` and `CORS_ORIGINS`

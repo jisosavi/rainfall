@@ -29,6 +29,7 @@ def test_stations_defaults_to_latest_and_includes_no_data_stations(client, seede
     assert by_name["Helsinki Kaisaniemi"]["has_data"] is True
     assert by_name["Oulu lentoasema"]["has_data"] is False
     assert by_name["Oulu lentoasema"]["precipitation_mm"] is None
+    assert by_name["Oulu lentoasema"]["source"] == "fmi"
 
 
 def test_stations_only_includes_stations_reported_that_day(client, seeded):
