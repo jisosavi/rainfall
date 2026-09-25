@@ -98,6 +98,11 @@ function onClick(event: MouseEvent) {
           <a :href="t.sourceUrl" target="_blank" rel="noopener">{{ t.aboutSourceLink }}</a>
         </p>
         <p>
+          {{ t.aboutCodeLicencePrefix }}
+          <a :href="t.codeLicenceUrl" target="_blank" rel="noopener">{{ t.aboutCodeLicenceLink }}</a
+          >{{ t.aboutCodeLicenceSuffix }}
+        </p>
+        <p>
           {{ t.aboutFeedbackPrefix }}
           <a :href="t.feedbackUrl" target="_blank" rel="noopener">{{ t.aboutFeedbackLink }}</a>
         </p>

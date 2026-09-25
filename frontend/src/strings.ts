@@ -49,6 +49,10 @@ export const t = {
   aboutFeedbackPrefix: 'Found a problem or have an idea?',
   aboutFeedbackLink: 'Send feedback on GitHub',
   aboutSourceLink: 'Source code',
+  aboutCodeLicencePrefix: 'The source code is licensed under the',
+  aboutCodeLicenceLink: 'GNU General Public License v3.0 or later',
+  aboutCodeLicenceSuffix: '. The data licences are listed above.',
+  codeLicenceUrl: 'https://github.com/jisosavi/rainfall/blob/main/LICENSE',
   feedbackUrl: 'https://github.com/jisosavi/rainfall/issues/new/choose',
   sourceUrl: 'https://github.com/jisosavi/rainfall',
   dataSources: [
