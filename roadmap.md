@@ -21,6 +21,11 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Monitoring: get alerted when the ingestion job fails or data stops arriving, e.g. a check that the latest date is at most 2 days old
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
 
+- [ ] Denmark, Greenland and the Faroe Islands (DMI), then Iceland (IMO). Decided 2026-09-25:
+  - Include Greenland and the Faroe Islands. Greenland's rainfall and snow levels differ greatly from mainland Denmark's; check that the colour scales and the neighbour check (sparse stations) still make sense there.
+  - Iceland: rainfall from automatic stations only (hourly values summed 06–06 UTC); manual 09 UTC stations used for snow depth only.
+  - The country filter zooms the map to the chosen country (default behaviour); the start view stays on the Nordic mainland plus Denmark.
+
 ## Later / ideas
 
 - Denmark (DMI open data). Checked 2026-09-25:
