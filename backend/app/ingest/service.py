@@ -37,6 +37,7 @@ def upsert_stations(session: Session, series: list[StationSeries]) -> dict[tuple
             "country": s.country,
             "region": s.region,
             "owner": s.owner,
+            "elevation_m": s.elevation_m,
         }
         for s in series
     }
@@ -50,6 +51,8 @@ def upsert_stations(session: Session, series: list[StationSeries]) -> dict[tuple
             "country": stmt.excluded.country,
             "region": stmt.excluded.region,
             "owner": stmt.excluded.owner,
+            # Keep a known elevation if a later source call doesn't provide one.
+            "elevation_m": func.coalesce(stmt.excluded.elevation_m, Station.elevation_m),
         },
     )
     session.execute(stmt)

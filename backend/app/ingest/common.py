@@ -34,6 +34,7 @@ class StationSeries:
     values: list[tuple[date, Normalized]] = field(default_factory=list)
     owner: str | None = None  # organisation running the station, when the source says
     parameter: str = "precipitation"  # measurement type, see app.db.models.PARAMETERS
+    elevation_m: float | None = None  # metres above sea level, when known
 
 
 def check_plausible(parameter: str, value: "Normalized") -> "Normalized":

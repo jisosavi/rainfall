@@ -31,17 +31,19 @@ function valueOn(values: DailyValue[] | undefined, date: string): DailyValue | u
 interface Section {
   parameter: Parameter
   value: number | null
+  flag: string | null
 }
 const sections = computed<Section[]>(() => {
   const rainValue = valueOn(rain.data.value?.values, day.value)
   const snowValue = valueOn(snow.data.value?.values, day.value)
   const all: Section[] = [
-    { parameter: 'precipitation', value: rainValue?.has_data ? rainValue.value : null },
-    { parameter: 'snow_depth', value: snowValue?.has_data ? snowValue.value : null },
+    { parameter: 'precipitation', value: rainValue?.has_data ? rainValue.value : null, flag: rainValue?.flag ?? null },
+    { parameter: 'snow_depth', value: snowValue?.has_data ? snowValue.value : null, flag: snowValue?.flag ?? null },
   ]
   // The map's own value is authoritative for the shown measurement.
   const shown = all.find((s) => s.parameter === props.parameter)!
   shown.value = props.station.has_data ? props.station.value : null
+  shown.flag = props.station.flag
   // Show a measurement only if the station reports it (some are snow-only or rain-only).
   const has: Record<Parameter, boolean> = {
     precipitation: (rain.data.value?.values.length ?? 0) > 0 || props.parameter === 'precipitation',
@@ -72,6 +74,7 @@ const swatch = (s: Section) => (s.value !== null ? SCALES[s.parameter].classOf(s
         <span v-else class="swatch hollow" />
         {{ formatValue(s.parameter, s.value) }}
       </p>
+      <p v-if="s.flag" class="suspect" role="note">⚠ {{ t.suspectLong }}</p>
 
       <template v-if="s.parameter === 'precipitation'">
         <HistoryChart
@@ -206,6 +209,12 @@ h3 {
 .meta dd {
   margin: 0;
   text-align: right;
+}
+.suspect {
+  margin: -4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #fab219;
 }
 .note,
 .muted {

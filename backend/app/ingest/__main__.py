@@ -4,6 +4,10 @@ Without dates, each source backfills from INGEST_START_DATE if it has no data ye
 otherwise re-fetches its last INGEST_REFETCH_DAYS days (sources revise recent values).
 MET Norway needs FROST_CLIENT_ID; with --source all it is skipped when that is unset.
 
+After fetching, the spatial quality check (app.qc) re-flags suspect values over the dates
+the run covered. `--qc-only` runs just the check for --start..--end (default: from
+INGEST_START_DATE to yesterday).
+
 `--source smhi --archive-refresh` re-loads the last SMHI_ARCHIVE_REFRESH_DAYS days of rainfall
 and snow depth from SMHI's corrected archive, replacing preliminary values (run monthly).
 """
@@ -19,6 +23,7 @@ from app.config import get_settings
 from app.db.session import SessionLocal
 from app.ingest import fmi, met, smhi
 from app.db.models import PRECIPITATION, SNOW_DEPTH
+from app.qc import flag_spatial_outliers
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
@@ -34,6 +39,7 @@ def main() -> int:
     parser.add_argument("--start", type=date.fromisoformat)
     parser.add_argument("--end", type=date.fromisoformat)
     parser.add_argument("--archive-refresh", action="store_true", help="SMHI only: re-load recent corrected archive data")
+    parser.add_argument("--qc-only", action="store_true", help="only run the spatial quality check")
     args = parser.parse_args()
 
     # stdout, not the default stderr: Railway marks everything on stderr as an error.
@@ -52,7 +58,14 @@ def main() -> int:
         logger.warning("FROST_CLIENT_ID is not set, skipping MET Norway")
         sources.remove("met")
 
+    if args.qc_only:
+        yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
+        with SessionLocal() as session:
+            flag_spatial_outliers(session, args.start or settings.ingest_start_date, args.end or yesterday)
+        return 0
+
     failed = False
+    covered: list[tuple[date, date]] = []
     with SessionLocal() as session:
         for source in sources:
             start, end = default_range(
@@ -76,6 +89,16 @@ def main() -> int:
                 failed = True
                 continue
             logger.info("%s: done, %d values upserted", source, total)
+            covered.append((start, end))
+
+        if covered:
+            # Neighbours come from all sources, so check the whole span this run touched.
+            try:
+                flag_spatial_outliers(session, min(s for s, _ in covered), max(e for _, e in covered))
+            except Exception:
+                logger.exception("qc: spatial check failed")
+                session.rollback()
+                failed = True
     return 1 if failed else 0
 
 

@@ -39,7 +39,9 @@ const sorted = computed(() =>
                 :style="s.has_data && s.value !== null ? { background: SCALES[parameter].classOf(s.value).color } : {}"
               /><span class="name">{{ s.name }}</span><span class="tag">{{ t.countryTag[s.source] }}</span>
             </td>
-            <td class="num">{{ formatValue(parameter, s.has_data ? s.value : null) }}</td>
+            <td class="num">
+              <span v-if="s.flag" class="suspect" :title="t.suspectLong" :aria-label="t.suspectShort">⚠ </span>{{ formatValue(parameter, s.has_data ? s.value : null) }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -109,6 +111,9 @@ tr.selected {
 .tag {
   font-size: 10px;
   color: var(--text-muted);
+}
+.suspect {
+  color: #fab219;
 }
 .swatch {
   width: 10px;

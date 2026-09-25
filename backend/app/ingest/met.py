@@ -63,6 +63,7 @@ class _Station:
     lon: float
     country: str
     owner: str | None
+    elevation_m: float | None
     valid_from: date
     valid_to: date | None
 
@@ -175,6 +176,7 @@ def fetch_stations(client: httpx.Client, start: date, end: date, parameter: str 
                     lon=coords[0],
                     country=meta["countryCode"],
                     owner=tidy_owner(meta.get("stationHolders")),
+                    elevation_m=meta.get("masl"),
                     valid_from=valid_from - shift,
                     valid_to=valid_to - shift if valid_to else None,
                 )
@@ -237,6 +239,7 @@ def fetch_daily(
                 country=s.country,
                 owner=s.owner,
                 parameter=parameter,
+                elevation_m=s.elevation_m,
             )
             station_values = values.get(s.id, {})
             if element.fill_missing:

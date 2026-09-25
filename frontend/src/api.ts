@@ -19,6 +19,7 @@ export interface StationDay {
   value: number | null
   unit: string
   has_data: boolean
+  flag: string | null
 }
 
 export interface StationsForDate {
@@ -31,6 +32,7 @@ export interface DailyValue {
   date: string
   value: number | null
   has_data: boolean
+  flag: string | null
 }
 
 export interface StationHistory {

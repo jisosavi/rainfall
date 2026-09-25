@@ -14,6 +14,7 @@ defineProps<{ parameter: Parameter }>()
         <span class="swatch" :style="{ background: c.color }" />{{ c.label }}
       </li>
       <li><span class="swatch hollow" />{{ t.noData }}</li>
+      <li><span class="swatch suspect" />⚠ {{ t.suspectLegend }}</li>
     </ul>
   </section>
 </template>
@@ -49,6 +50,9 @@ li {
 }
 .swatch.hollow {
   border: 2px solid #fff;
+}
+.swatch.suspect {
+  border: 2px solid #fab219;
 }
 @media (max-width: 760px) {
   .legend {

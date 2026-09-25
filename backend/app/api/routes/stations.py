@@ -60,6 +60,7 @@ def _station_day(station: Station, day: date, parameter: str, record: DailyValue
         unit=UNITS[parameter],
         precipitation_mm=_compat_mm(parameter, value),
         has_data=record.has_data if record else False,
+        flag=record.flag if record else None,
     )
 
 
@@ -152,7 +153,13 @@ def get_station_history(
         start=start,
         end=end,
         values=[
-            HistoryValue(date=r.date, value=r.value, precipitation_mm=_compat_mm(parameter, r.value), has_data=r.has_data)
+            HistoryValue(
+                date=r.date,
+                value=r.value,
+                precipitation_mm=_compat_mm(parameter, r.value),
+                has_data=r.has_data,
+                flag=r.flag,
+            )
             for r in rows
         ],
     )

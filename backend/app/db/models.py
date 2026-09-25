@@ -36,6 +36,8 @@ class Station(Base):
     region: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Organisation running the station, e.g. "SMHI" or "VA Syd", when the source provides it.
     owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Metres above sea level, when the source provides it (MET Norway, SMHI; not FMI's daily data).
+    elevation_m: Mapped[float | None] = mapped_column(Double, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -79,6 +81,9 @@ class DailyValue(Base):
     has_data: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # Original source value/flag, e.g. FMI's "-1" for "no precipitation" or "no snow cover".
     raw_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Our own quality flag, e.g. "suspect_spatial" (far above all nearby stations that day).
+    # Flagged values stay visible but are marked, and left out of rankings.
+    flag: Mapped[str | None] = mapped_column(String(32), nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -20,10 +20,10 @@ function addDays(iso: string, days: number): string {
 // One slot per calendar day, including days with no row.
 const days = computed(() => {
   const byDate = new Map(props.values.map((v) => [v.date, v]))
-  const out: Array<{ date: string; mm: number | null }> = []
+  const out: Array<{ date: string; mm: number | null; flag: string | null }> = []
   for (let d = props.start; d <= props.end; d = addDays(d, 1)) {
     const v = byDate.get(d)
-    out.push({ date: d, mm: v && v.has_data ? v.value : null })
+    out.push({ date: d, mm: v && v.has_data ? v.value : null, flag: v?.flag ?? null })
   }
   return out
 })
@@ -63,7 +63,7 @@ const wetDays = computed(() => days.value.filter((d) => (d.mm ?? 0) >= 0.1).leng
         <path
           v-if="d.mm !== null && d.mm > 0"
           :d="barPath(i, d.mm)"
-          :class="['bar', { selected: d.date === selectedDate }]"
+          :class="['bar', { selected: d.date === selectedDate, suspect: d.flag }]"
           :fill="rainClass(d.mm).color"
         />
         <circle v-else-if="d.mm === null" :cx="i * slot + slot / 2" :cy="HEIGHT - 3" r="2" class="missing" />
@@ -121,6 +121,10 @@ svg {
 /* Bars use the map's rainfall colours; the selected date gets a white outline. */
 .bar.selected {
   stroke: #fff;
+  stroke-width: 1.5;
+}
+.bar.suspect {
+  stroke: #fab219;
   stroke-width: 1.5;
 }
 .missing {

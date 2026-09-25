@@ -171,6 +171,17 @@ These were verified against the live API on 2026-09-25.
 
 Values above **300 mm of rain per day** or **600 cm of snow** are stored as missing, whatever the source's quality flag says; the original value stays in `raw_status` with `|implausible`. Both limits are well above Nordic records. This caught SMHI's Söråker station (Sundsvalls kommun), whose feed reported 17,280 mm a day with quality `Y` in 2026. Migration `0005` applied the rule to already stored rows.
 
+### Neighbour check (all sources)
+
+After every ingestion, `app/qc.py` compares unusually high values with the same day's values at nearby stations of any country, and flags a value `suspect_spatial` (column `daily_values.flag`) if it is far above even the highest neighbour. Flagged values stay visible, are marked in the UI (amber ring, ⚠), and are left out of rankings.
+
+| | Checked from | Neighbours | Suspect if | Needs |
+|---|---|---|---|---|
+| Rainfall | 30 mm | within 50 km | > 3 × highest neighbour + 20 mm | 3 neighbours with data |
+| Snow depth | 50 cm | within 30 km **and ±300 m altitude** | > 3 × highest neighbour + 50 cm | 3 neighbours with data |
+
+Comparing with the highest neighbour protects real local downpours (e.g. 114 mm in Multia, July 2026, is not flagged). The altitude window keeps mountain stations from being compared with valleys; altitude (`stations.elevation_m`) comes from MET Norway and SMHI, FMI's daily data has none. On 2025–2026 data it flags about 17 rainfall and 90 snow values. Run it by hand with `python -m app.ingest --qc-only --start YYYY-MM-DD`.
+
 ### Licences
 
 FMI, MET Norway and SMHI open data are all CC BY 4.0 (MET Norway also under NLOD 2.0). All three are credited in the map attribution and in the About dialog. Because we process the data (quality filtering, date alignment, missing-day rows), the About dialog says so, as SMHI's terms require.

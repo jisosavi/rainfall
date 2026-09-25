@@ -61,6 +61,7 @@ class _Station:
     owner: str | None
     lat: float
     lon: float
+    elevation_m: float | None
     first_day: date
     last_day: date
 
@@ -115,6 +116,7 @@ def parse_stations(payload: dict, start: date, end: date) -> list[_Station]:
                 owner=(s.get("owner") or "").strip() or None,
                 lat=s["latitude"],
                 lon=s["longitude"],
+                elevation_m=s.get("height"),
                 first_day=first_day,
                 last_day=last_day,
             )
@@ -209,6 +211,7 @@ def fetch_daily(
             country="SE",
             owner=station.owner,
             parameter=parameter,
+            elevation_m=station.elevation_m,
         )
         if config.fill_missing:
             day, last = max(start, station.first_day), min(end, station.last_day)
@@ -231,7 +234,8 @@ def slice_series(series: list[StationSeries], start: date, end: date) -> list[St
         if values:
             out.append(
                 StationSeries(
-                    s.source, s.source_station_id, s.name, s.region, s.lat, s.lon, s.country, values, s.owner, s.parameter
+                    s.source, s.source_station_id, s.name, s.region, s.lat, s.lon, s.country, values, s.owner, s.parameter,
+                    s.elevation_m,
                 )
             )
     return out

@@ -26,6 +26,8 @@ class StationDay(BaseModel):
     # Same as value for precipitation, None otherwise. Kept for frontends built before `value`.
     precipitation_mm: float | None = None
     has_data: bool
+    # Our quality flag, e.g. "suspect_spatial": far above all nearby stations that day.
+    flag: str | None = None
 
 
 class StationsForDateResponse(BaseModel):
@@ -53,6 +55,7 @@ class HistoryValue(BaseModel):
     # Same as value for precipitation, None otherwise (compatibility, see StationDay).
     precipitation_mm: float | None = None
     has_data: bool
+    flag: str | None = None
 
 
 class StationHistoryResponse(BaseModel):

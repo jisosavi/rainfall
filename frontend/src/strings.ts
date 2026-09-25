@@ -19,6 +19,9 @@ export const t = {
   rainfall: 'Rainfall',
   snowDepth: 'Snow depth',
   noData: 'No data',
+  suspectShort: 'Unusually high',
+  suspectLong: 'Unusually high compared with nearby stations that day. Shown as reported, but left out of rankings.',
+  suspectLegend: 'Unusually high vs nearby',
   close: 'Close',
   region: 'Municipality',
   owner: 'Station owner',
@@ -44,7 +47,7 @@ export const t = {
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
   aboutStationsNote: 'Stations: number on the date and measurement shown on the map.',
   aboutProcessingNote:
-    'The data has been processed: values are quality-filtered, aligned to the same daily period (06:00–06:00 UTC), and days without a value are marked as missing.',
+    'The data has been processed: values are quality-filtered, aligned to the same daily period (06:00–06:00 UTC), and days without a value are marked as missing. Impossible values are dropped, and values far above all nearby stations that day are marked as unusually high.',
   aboutUpdatesHeading: 'Updates',
   aboutUpdatesIntro: (utcTimes: string, localTimes: string) =>
     `Data is fetched twice a day, at ${utcTimes} UTC (${localTimes} your time). Each daily value covers 06:00–06:00 UTC, so yesterday's value can first appear in the morning run.`,

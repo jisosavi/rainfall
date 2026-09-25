@@ -32,6 +32,8 @@ function startPadding() {
 }
 const MAP_SURFACE: [number, number, number, number] = [12, 12, 12, 255]
 const WHITE: [number, number, number, number] = [255, 255, 255, 235]
+// Status "warning" amber: a value far above all nearby stations (always paired with a text label).
+const SUSPECT: [number, number, number, number] = [250, 178, 25, 255]
 
 // Hollow (no data) first, then dry to wet, so the heaviest rainfall is drawn on top.
 function drawOrder(stations: StationDay[]): StationDay[] {
@@ -75,11 +77,11 @@ function stationsLayer() {
     stroked: true,
     filled: true,
     lineWidthUnits: 'pixels',
-    getLineWidth: (d) => (d.has_data ? 1.5 : 2),
+    getLineWidth: (d) => (d.flag ? 2.5 : d.has_data ? 1.5 : 2),
     getFillColor: (d) => (d.has_data && d.value !== null ? [...scale.classOf(d.value).rgb, 255] : [0, 0, 0, 0]),
     updateTriggers: { getFillColor: props.parameter },
     // Filled circles get a thin ring in the map colour so overlapping stations stay separate.
-    getLineColor: (d) => (d.has_data ? MAP_SURFACE : WHITE),
+    getLineColor: (d) => (d.flag ? SUSPECT : d.has_data ? MAP_SURFACE : WHITE),
     pickable: true,
     autoHighlight: true,
     highlightColor: [255, 255, 255, 60],
@@ -90,7 +92,7 @@ function tooltip({ object }: PickingInfo<StationDay>) {
   if (!object) return null
   const value = formatValue(props.parameter, object.has_data ? object.value : null)
   return {
-    html: `<strong>${escapeHtml(object.name)}</strong><br>${value}`,
+    html: `<strong>${escapeHtml(object.name)}</strong><br>${value}${object.flag ? `<br>⚠ ${t.suspectShort}` : ''}`,
     className: 'map-tooltip',
     style: { backgroundColor: '', color: '', padding: '', fontSize: '' },
   }

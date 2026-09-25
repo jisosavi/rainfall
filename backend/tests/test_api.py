@@ -85,7 +85,7 @@ def test_station_history(client, seeded):
     station_id = seeded["helsinki"].id
     body = client.get(f"/api/stations/{station_id}/history").json()
     assert (body["start"], body["end"]) == ("2026-08-26", "2026-09-24")
-    assert body["values"] == [{"date": "2026-09-24", "value": 4.5, "precipitation_mm": 4.5, "has_data": True}]
+    assert body["values"] == [{"date": "2026-09-24", "value": 4.5, "precipitation_mm": 4.5, "has_data": True, "flag": None}]
     assert (body["parameter"], body["unit"]) == ("precipitation", "mm")
 
     body = client.get(f"/api/stations/{station_id}/history", params={"start": "2025-12-01", "end": "2026-09-30"}).json()
