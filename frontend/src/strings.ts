@@ -38,6 +38,10 @@ export const t = {
   aboutStationsNote: 'Stations: number on the date shown on the map.',
   aboutProcessingNote:
     'The data has been processed: values are quality-filtered, aligned to the same daily period (06:00–06:00 UTC), and days without a value are marked as missing.',
+  aboutUpdatesHeading: 'Updates',
+  aboutUpdatesIntro: (utcTimes: string, localTimes: string) =>
+    `Data is fetched twice a day, at ${utcTimes} UTC (${localTimes} your time). Each daily value covers 06:00–06:00 UTC, so yesterday's value can first appear in the morning run.`,
+  aboutUpdatesColumns: { country: 'Country', newValues: 'New values', corrections: 'Late values and corrections' },
   aboutProjectHeading: 'Project',
   aboutDeveloperPrefix: 'Developed by',
   developerName: 'Janne Isosävi',
@@ -55,6 +59,8 @@ export const t = {
       url: 'https://en.ilmatieteenlaitos.fi/open-data',
       licence: 'CC BY 4.0',
       licenceUrl: 'https://creativecommons.org/licenses/by/4.0/',
+      newValues: 'Yesterday, in the morning run',
+      corrections: 'The last 10 days are re-checked on every run, so revised values are picked up.',
     },
     {
       source: 'met',
@@ -63,6 +69,8 @@ export const t = {
       url: 'https://frost.met.no',
       licence: 'CC BY 4.0, NLOD 2.0',
       licenceUrl: 'https://www.met.no/en/free-meteorological-data/Licensing-and-crediting',
+      newValues: 'Yesterday, in the morning run',
+      corrections: 'The last 10 days are re-checked on every run. Some manual stations report a day or two late.',
     },
     {
       source: 'smhi',
@@ -71,6 +79,9 @@ export const t = {
       url: 'https://opendata.smhi.se/',
       licence: 'CC BY 4.0',
       licenceUrl: 'https://www.smhi.se/data/om-smhis-data/villkor-for-anvandning',
+      newValues: 'Yesterday, in the morning run (preliminary)',
+      corrections:
+        'The last 10 days are re-checked on every run; many manual stations report late. On the 3rd of each month, the last four months are replaced with SMHI’s quality-controlled values.',
     },
   ] as const,
   countryFilter: 'Country',

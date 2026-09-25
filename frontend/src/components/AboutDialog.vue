@@ -3,6 +3,23 @@ import { ref } from 'vue'
 import type { Source } from '../api'
 import { t } from '../strings'
 
+// Ingestion runs (Railway cron `15 7,13 * * *`), shown in UTC and the viewer's local time.
+const RUNS_UTC: Array<[number, number]> = [
+  [7, 15],
+  [13, 15],
+]
+const pad = (n: number) => String(n).padStart(2, '0')
+const localTime = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' })
+function runTimes() {
+  const today = new Date()
+  const utc = RUNS_UTC.map(([h, m]) => `${pad(h)}:${pad(m)}`)
+  const local = RUNS_UTC.map(([h, m]) =>
+    localTime.format(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m))),
+  )
+  return { utc: utc.join(' and '), local: local.join(' and ') }
+}
+const runs = runTimes()
+
 // Stations per source on the date shown on the map.
 defineProps<{ stationCounts: Partial<Record<Source, number>> }>()
 
@@ -28,7 +45,7 @@ function onClick(event: MouseEvent) {
         <h3 id="about-data">{{ t.aboutDataHeading }}</h3>
         <p>{{ t.aboutDataIntro }}</p>
         <div class="table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <th scope="col">{{ t.aboutDataColumns.country }}</th>
@@ -48,6 +65,29 @@ function onClick(event: MouseEvent) {
           </table>
         </div>
         <p class="note">{{ t.aboutStationsNote }} {{ t.aboutProcessingNote }}</p>
+      </section>
+
+      <section aria-labelledby="about-updates">
+        <h3 id="about-updates">{{ t.aboutUpdatesHeading }}</h3>
+        <p>{{ t.aboutUpdatesIntro(runs.utc, runs.local) }}</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{{ t.aboutUpdatesColumns.country }}</th>
+                <th scope="col">{{ t.aboutUpdatesColumns.newValues }}</th>
+                <th scope="col">{{ t.aboutUpdatesColumns.corrections }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="d in t.dataSources" :key="d.source">
+                <td>{{ d.country }}</td>
+                <td>{{ d.newValues }}</td>
+                <td>{{ d.corrections }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section aria-labelledby="about-project">
@@ -139,7 +179,7 @@ td:first-child {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-td:last-child {
+.data-table td:last-child {
   white-space: nowrap;
 }
 @media (max-width: 520px) {
@@ -150,7 +190,7 @@ td:last-child {
   th {
     padding: 6px 5px;
   }
-  td:last-child {
+  .data-table td:last-child {
     white-space: normal;
   }
 }
