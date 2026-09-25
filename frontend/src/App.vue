@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { NotFoundError, useDates, useStations } from './api'
+import { NotFoundError, useDates, useStations, type Source } from './api'
 import { useSelectionStore } from './stores/selection'
 import { formatDate, t } from './strings'
 import AboutDialog from './components/AboutDialog.vue'
@@ -29,6 +29,12 @@ const stationRows = computed(() => {
 })
 const selectedStation = computed(() => stationRows.value.find((s) => s.id === stationId.value) ?? null)
 const reporting = computed(() => stationRows.value.filter((s) => s.has_data).length)
+// Per source, on the shown date and ignoring the country filter (for the About dialog).
+const stationCounts = computed(() => {
+  const counts: Partial<Record<Source, number>> = {}
+  for (const s of stations.data.value?.stations ?? []) counts[s.source] = (counts[s.source] ?? 0) + 1
+  return counts
+})
 
 const errorMessage = computed(() => {
   const error = stations.error.value
@@ -85,7 +91,7 @@ function selectStation(id: string | null) {
       @pick-date="date = $event"
     />
 
-    <AboutDialog ref="about" />
+    <AboutDialog ref="about" :station-counts="stationCounts" />
   </main>
 </template>
 
