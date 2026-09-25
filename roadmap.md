@@ -5,7 +5,6 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 ## Now
 
 - [ ] Upload `frontend/dist/` to isosavi.com at `/test/rainfall/` and check it against the production API
-- [ ] Choose a licence for the code, now that the repository is public
 
 ## Next
 

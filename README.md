@@ -128,3 +128,11 @@ These were verified against the live API on 2026-09-25.
   - `(station_id, date)` is unique
 - **Coverage:** about 189 stations since 2025, with about 172 reporting on a given day.
 - **Licence:** FMI open data is CC BY 4.0. The credit is shown in the map attribution and in the About dialog.
+
+## Licence
+
+Copyright © 2026 Janne Isosävi
+
+The code is licensed under the [GNU General Public License v3.0 or later](LICENSE). You may use, change and share it, but versions you distribute must stay under the same licence and include their source code.
+
+The rainfall data comes from the Finnish Meteorological Institute and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit FMI when you use it.
