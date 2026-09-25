@@ -1,8 +1,8 @@
-# Rainfall
+# Nordic rainfall
 
-Daily rainfall at weather stations in Finland and Norway on a map, based on open data from FMI and MET Norway.
+Daily rainfall at weather stations in Finland, Norway and Sweden on a map, based on open data from FMI, MET Norway and SMHI.
 
-- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI and MET Norway data twice a day.
+- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway and SMHI data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
 
@@ -16,7 +16,7 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 backend/
   app/api/routes/   HTTP endpoints
   app/db/           SQLAlchemy models and session
-  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), service.py (shared)
+  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), service.py (shared)
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
   Dockerfile, start.sh, railway.json
@@ -37,7 +37,7 @@ cp .env.example .env        # then edit DATABASE_URL
 pytest                      # in-memory SQLite, no database needed
 alembic upgrade head
 uvicorn app.main:app --reload
-python -m app.ingest        # load data; --source fmi|met|all (default all)
+python -m app.ingest        # load data; --source fmi|met|smhi|all (default all)
 ```
 
 After a model change: `alembic revision --autogenerate -m "..."`. Review the generated file before committing it.
@@ -52,6 +52,7 @@ After a model change: `alembic revision --autogenerate -m "..."`. Review the gen
 | `APP_ENV` | web | `production` on Railway. Not used by the code yet. |
 | `INGEST_START_DATE` | ingest | First date loaded into an empty database. Default `2025-01-01`. |
 | `INGEST_REFETCH_DAYS` | ingest | Recent days re-fetched on every run. Default `10`. |
+| `SMHI_ARCHIVE_REFRESH_DAYS` | ingest | Days re-loaded by `--archive-refresh`. Default `130`. |
 | `FROST_CLIENT_ID` | ingest | MET Norway Frost client ID ([register free](https://frost.met.no/auth/requestCredentials.html)). Without it, MET is skipped. The client secret is not needed. Never commit it. |
 
 ## Deployment (Railway)
@@ -70,6 +71,11 @@ One project with three services:
   - Cron Schedule `15 7,13 * * *` (UTC)
   - Restart Policy Never
   - Variables: `DATABASE_URL`, `FROST_CLIENT_ID`
+- **rainfall-ingest-archive (cron, monthly):** replaces SMHI's preliminary values with its corrected archive.
+  - Same settings as rainfall-ingest, except:
+  - Start Command `python -m app.ingest --source smhi --archive-refresh`
+  - Cron Schedule `0 8 3 * *` (08:00 UTC on the 3rd of each month)
+  - Variable: `DATABASE_URL`
 
 Pushing to `main` redeploys both services.
 
@@ -104,13 +110,13 @@ If the site moves to a new path, change `VITE_BASE`. If it moves to a new domain
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
 
-`StationDay` has these fields: `id` (UUID), `source` (`fmi` or `met`), `source_station_id` (FMI fmisid, or Frost id such as `SN18700`), `name`, `lat`, `lon`, `country` (`FI`, `NO`, or `SJ` for Svalbard and Jan Mayen), `region`, `date`, `precipitation_mm`, `has_data`.
+`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met` or `smhi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, or SMHI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, or `SE`), `region`, `owner` (organisation running the station, when known), `date`, `precipitation_mm`, `has_data`.
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
 ## Data conventions
 
-Every stored date D means the same 24 hours in both countries: **06 UTC on D to 06 UTC on D+1**.
+Every stored date D means the same 24 hours in every country: **06 UTC on D to 06 UTC on D+1**.
 
 ### FMI (Finland)
 
@@ -143,9 +149,19 @@ These were verified against the live API on 2026-09-25.
 - **Names:** Frost's upper-case names are shown in normal capitalisation, e.g. "Oslo - Blindern". `region` is the municipality, or the county if there's no municipality.
 - **Coverage:** about 707 stations with data in 2026, about 610 reporting on a given day.
 
+### SMHI (Sweden)
+
+These were verified against the live API on 2026-09-25.
+
+- **Source:** SMHI Open Data Meteorological Observations, parameter `5` ("Nederbördsmängd, summa 1 dygn, kl 06"). No registration is needed. There's no all-stations query, so data is fetched per station, 4 requests at a time.
+- **Date:** each value has explicit from/to times and a representative day (`ref`), which is the day the window starts, the same as FMI. It's stored as-is. Checked against hourly sums at 5 stations.
+- **Periods:** `latest-months` (JSON, about the last 4 months) and `corrected-archive` (CSV, quality-controlled history up to about 3 months ago). The archive is used automatically for older ranges, and monthly by `--archive-refresh`, whose corrected values replace the preliminary ones.
+- **Values:** quality `G` (checked) and `Y` (suspicious, or newest and not yet checked) are kept; anything else is treated as missing. `raw_status` holds value and quality, e.g. `4.2|G`. Missing days become `has_data = false` rows.
+- **Stations:** SMHI's own plus other owners (municipal networks such as VA Syd, the armed forces), with the owner stored. Names are kept as SMHI writes them, including suffixes such as `A` (automatic). SMHI gives no municipality.
+
 ### Licences
 
-FMI and MET Norway open data are both CC BY 4.0 (MET Norway also under NLOD 2.0). Both are credited in the map attribution and in the About dialog.
+FMI, MET Norway and SMHI open data are all CC BY 4.0 (MET Norway also under NLOD 2.0). All three are credited in the map attribution and in the About dialog. Because we process the data (quality filtering, date alignment, missing-day rows), the About dialog says so, as SMHI's terms require.
 
 ## Licence
 
@@ -153,4 +169,4 @@ Copyright © 2026 Janne Isosävi
 
 The code is licensed under the [GNU General Public License v3.0 or later](LICENSE). You may use, change and share it, but versions you distribute must stay under the same licence and include their source code.
 
-The rainfall data comes from the Finnish Meteorological Institute and MET Norway and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.
+The rainfall data comes from the Finnish Meteorological Institute, MET Norway and SMHI and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.

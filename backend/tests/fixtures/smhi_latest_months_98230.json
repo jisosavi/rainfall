@@ -1,0 +1,105 @@
+{
+ "updated": 1790294400000,
+ "parameter": {
+  "key": "5",
+  "name": "Nederbördsmängd",
+  "summary": "summa 1 dygn, 1 gång/dygn, kl 06",
+  "unit": "millimeter"
+ },
+ "station": {
+  "key": "98230",
+  "name": "Stockholm-Observatoriekullen A",
+  "owner": "SMHI",
+  "ownerCategory": "CLIMATE",
+  "measuringStations": "CORE",
+  "height": 2.0
+ },
+ "period": {
+  "key": "latest-months",
+  "from": 1779062401000,
+  "to": 1790326800000,
+  "summary": "Data från senaste fyra månaderna",
+  "sampling": "24 timmar"
+ },
+ "position": [
+  {
+   "from": 844128000000,
+   "to": 1790328018000,
+   "height": 43.133,
+   "latitude": 59.3417,
+   "longitude": 18.0549
+  }
+ ],
+ "value": [
+  {
+   "from": 1789452001000,
+   "to": 1789538400000,
+   "ref": "2026-09-15",
+   "value": "3.2",
+   "quality": "G"
+  },
+  {
+   "from": 1789538401000,
+   "to": 1789624800000,
+   "ref": "2026-09-16",
+   "value": "1.5",
+   "quality": "G"
+  },
+  {
+   "from": 1789624801000,
+   "to": 1789711200000,
+   "ref": "2026-09-17",
+   "value": "0.0",
+   "quality": "G"
+  },
+  {
+   "from": 1789711201000,
+   "to": 1789797600000,
+   "ref": "2026-09-18",
+   "value": "2.8",
+   "quality": "G"
+  },
+  {
+   "from": 1789797601000,
+   "to": 1789884000000,
+   "ref": "2026-09-19",
+   "value": "0.3",
+   "quality": "G"
+  },
+  {
+   "from": 1789884001000,
+   "to": 1789970400000,
+   "ref": "2026-09-20",
+   "value": "0.6",
+   "quality": "G"
+  },
+  {
+   "from": 1789970401000,
+   "to": 1790056800000,
+   "ref": "2026-09-21",
+   "value": "0.1",
+   "quality": "G"
+  },
+  {
+   "from": 1790056801000,
+   "to": 1790143200000,
+   "ref": "2026-09-22",
+   "value": "0.0",
+   "quality": "G"
+  },
+  {
+   "from": 1790143201000,
+   "to": 1790229600000,
+   "ref": "2026-09-23",
+   "value": "0.0",
+   "quality": "G"
+  },
+  {
+   "from": 1790229601000,
+   "to": 1790316000000,
+   "ref": "2026-09-24",
+   "value": "0.0",
+   "quality": "G"
+  }
+ ]
+}

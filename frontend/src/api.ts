@@ -1,7 +1,7 @@
 import { computed, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 
-export type Source = 'fmi' | 'met'
+export type Source = 'fmi' | 'met' | 'smhi'
 
 export interface StationDay {
   id: string
@@ -12,6 +12,7 @@ export interface StationDay {
   lon: number
   country: string
   region: string | null
+  owner: string | null
   date: string
   precipitation_mm: number | null
   has_data: boolean

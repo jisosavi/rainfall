@@ -18,7 +18,7 @@ class StationSeries:
     """One station's daily values, already normalized and dated by our convention:
     a value stored under date D covers 06 UTC on D to 06 UTC on D+1."""
 
-    source: str  # "fmi" or "met"
+    source: str  # "fmi", "met" or "smhi"
     source_station_id: str
     name: str
     region: str | None
@@ -26,6 +26,7 @@ class StationSeries:
     lon: float
     country: str
     values: list[tuple[date, Normalized]] = field(default_factory=list)
+    owner: str | None = None  # organisation running the station, when the source says
 
 
 def date_chunks(start: date, end: date, days: int = CHUNK_DAYS):

@@ -17,9 +17,9 @@ const container = ref<HTMLDivElement>()
 let map: maplibregl.Map | undefined
 let overlay: MapboxOverlay | undefined
 
-// Mainland Norway and Finland; Svalbard and Jan Mayen are one zoom-out away.
+// Finland, Sweden and mainland Norway; Svalbard and Jan Mayen are one zoom-out away.
 const START_BOUNDS: [[number, number], [number, number]] = [
-  [4.5, 57.8],
+  [4.5, 55.2],
   [31.6, 71.3],
 ]
 

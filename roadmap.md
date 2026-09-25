@@ -16,7 +16,8 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Later / ideas
 
-- Sweden (SMHI open data), using the same per-source design as FMI and MET Norway
+- Denmark (DMI open data): https://dmi.cma.dk/ (confirm the API address; DMI's open data docs are usually at opendatadocs.dmi.govcloud.dk)
+- Iceland (Veðurstofa Íslands): https://api.vedur.is/weather/
 
 - Finnish terrain base map (an API key is available). Check whether the extra detail helps readability.
 - Monthly and yearly totals per station, and a map view for them

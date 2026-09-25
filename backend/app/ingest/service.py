@@ -36,6 +36,7 @@ def upsert_stations(session: Session, series: list[StationSeries]) -> dict[tuple
             "lon": s.lon,
             "country": s.country,
             "region": s.region,
+            "owner": s.owner,
         }
         for s in series
     }
@@ -48,6 +49,7 @@ def upsert_stations(session: Session, series: list[StationSeries]) -> dict[tuple
             "lon": stmt.excluded.lon,
             "country": stmt.excluded.country,
             "region": stmt.excluded.region,
+            "owner": stmt.excluded.owner,
         },
     )
     session.execute(stmt)

@@ -20,7 +20,7 @@ const about = ref<InstanceType<typeof AboutDialog>>()
 const showList = ref(false)
 
 const shownDate = computed(() => stations.data.value?.date ?? date.value)
-const COUNTRY_SOURCE = { fi: 'fmi', no: 'met' } as const
+const COUNTRY_SOURCE = { fi: 'fmi', no: 'met', se: 'smhi' } as const
 const stationRows = computed(() => {
   const all = stations.data.value?.stations ?? []
   const selected = country.value

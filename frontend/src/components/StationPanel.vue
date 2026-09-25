@@ -46,6 +46,7 @@ const swatch = computed(() =>
 
     <dl class="meta">
       <div v-if="station.region"><dt>{{ t.region }}</dt><dd>{{ station.region }}</dd></div>
+      <div v-if="station.owner"><dt>{{ t.owner }}</dt><dd>{{ station.owner }}</dd></div>
       <div><dt>{{ t.stationId }}</dt><dd>{{ station.source_station_id }} · {{ t.sourceName[station.source] }}</dd></div>
       <div><dt>{{ t.coordinates }}</dt><dd>{{ station.lat.toFixed(3) }}° N, {{ station.lon.toFixed(3) }}° E</dd></div>
     </dl>

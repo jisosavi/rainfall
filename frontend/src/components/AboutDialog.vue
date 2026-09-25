@@ -21,9 +21,10 @@ function onClick(event: MouseEvent) {
       <p>{{ t.aboutBody }}</p>
       <p>
         {{ t.aboutDataPrefix }}
-        <a :href="t.fmiOpenDataUrl" target="_blank" rel="noopener">{{ t.aboutDataLink }}</a>
-        {{ t.aboutDataAnd }}
+        <a :href="t.fmiOpenDataUrl" target="_blank" rel="noopener">{{ t.aboutDataLink }}</a>{{ t.aboutDataAnd }}
         <a :href="t.metOpenDataUrl" target="_blank" rel="noopener">{{ t.aboutMetLink }}</a>
+        {{ t.aboutDataAnd2 }}
+        <a :href="t.smhiOpenDataUrl" target="_blank" rel="noopener">{{ t.aboutSmhiLink }}</a>
         {{ t.aboutDataSuffix }}
       </p>
       <p>

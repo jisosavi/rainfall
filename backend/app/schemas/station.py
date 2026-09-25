@@ -15,6 +15,7 @@ class StationDay(BaseModel):
     lon: float
     country: str
     region: str | None = None
+    owner: str | None = None
     date: date
     precipitation_mm: float | None = None
     has_data: bool

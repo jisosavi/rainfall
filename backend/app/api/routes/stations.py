@@ -45,6 +45,7 @@ def _station_day(station: Station, day: date, record: DailyPrecipitation | None)
         lon=station.lon,
         country=station.country,
         region=station.region,
+        owner=station.owner,
         date=day,
         precipitation_mm=record.precipitation_mm if record else None,
         has_data=record.has_data if record else False,

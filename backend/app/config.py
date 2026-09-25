@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     ingest_start_date: date = Field(default=date(2025, 1, 1), alias="INGEST_START_DATE")
     # Recent days re-fetched on every run, since FMI revises recent values.
     ingest_refetch_days: int = Field(default=10, alias="INGEST_REFETCH_DAYS")
+    # Days re-loaded from SMHI's corrected archive by --archive-refresh (latest-months spans ~4 months).
+    smhi_archive_refresh_days: int = Field(default=130, alias="SMHI_ARCHIVE_REFRESH_DAYS")
     # MET Norway Frost API client ID (https://frost.met.no). Optional; MET is skipped without it.
     frost_client_id: str | None = Field(default=None, alias="FROST_CLIENT_ID")
 

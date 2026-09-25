@@ -43,6 +43,7 @@ class _Station:
     lat: float
     lon: float
     country: str
+    owner: str | None
     valid_from: date
     valid_to: date | None
 
@@ -124,6 +125,7 @@ def fetch_stations(client: httpx.Client, start: date, end: date) -> list[_Statio
                     lat=coords[1],
                     lon=coords[0],
                     country=meta["countryCode"],
+                    owner=", ".join(meta.get("stationHolders") or []) or None,
                     valid_from=_label_to_stored(valid_from),
                     valid_to=_label_to_stored(valid_to) if valid_to else None,
                 )
@@ -174,6 +176,7 @@ def fetch_daily(client: httpx.Client, start: date, end: date, stations: list[_St
                 lat=s.lat,
                 lon=s.lon,
                 country=s.country,
+                owner=s.owner,
             )
             station_values = values.get(s.id, {})
             day = max(start, s.valid_from)

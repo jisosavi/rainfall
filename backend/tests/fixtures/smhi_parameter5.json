@@ -1,0 +1,51 @@
+{
+ "key": "5",
+ "title": "Nederbördsmängd: Välj station (sedan tidsutsnitt)",
+ "summary": "summa 1 dygn, 1 gång/dygn, kl 06",
+ "unit": "millimeter",
+ "valueType": "INTERVAL",
+ "station": [
+  {
+   "key": "98230",
+   "name": "Stockholm-Observatoriekullen A",
+   "owner": "SMHI",
+   "ownerCategory": "CLIMATE",
+   "measuringStations": "CORE",
+   "id": 98230,
+   "height": 43.133,
+   "latitude": 59.3417,
+   "longitude": 18.0549,
+   "active": true,
+   "from": 844128000000,
+   "to": 1790326800000
+  },
+  {
+   "key": "22126231",
+   "name": "Bjarred TS",
+   "owner": "VA Syd",
+   "ownerCategory": "NATIONAL",
+   "measuringStations": "ADDITIONAL",
+   "id": 22126231,
+   "height": 8.901,
+   "latitude": 55.7248,
+   "longitude": 13.0349,
+   "active": true,
+   "from": 1694484879000,
+   "to": 1790326800000
+  },
+  {
+   "key": "173010",
+   "name": "Aapua",
+   "owner": "SMHI",
+   "ownerCategory": "CLIMATE",
+   "measuringStations": "CORE",
+   "id": 173010,
+   "height": 210.0,
+   "latitude": 66.8656,
+   "longitude": 23.4951,
+   "active": false,
+   "from": -788918400000,
+   "to": -405108000000
+  }
+ ]
+}

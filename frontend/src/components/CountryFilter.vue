@@ -9,6 +9,7 @@ const options: Array<{ value: CountryFilter; label: string }> = [
   { value: 'all', label: t.countryAll },
   { value: 'fi', label: t.countryFinland },
   { value: 'no', label: t.countryNorway },
+  { value: 'se', label: t.countrySweden },
 ]
 </script>
 

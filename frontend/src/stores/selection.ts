@@ -3,8 +3,8 @@ import { ref, watch } from 'vue'
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-export type CountryFilter = 'all' | 'fi' | 'no'
-const COUNTRIES: CountryFilter[] = ['all', 'fi', 'no']
+export type CountryFilter = 'all' | 'fi' | 'no' | 'se'
+const COUNTRIES: CountryFilter[] = ['all', 'fi', 'no', 'se']
 
 /** Selected date, station and country, mirrored to the URL (?date=…&station=…&country=…). */
 export const useSelectionStore = defineStore('selection', () => {
