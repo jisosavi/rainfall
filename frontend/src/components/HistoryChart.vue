@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { DailyValue } from '../api'
+import { rainClass } from '../lib/rainScale'
 import { formatMm, formatShortDate, t } from '../strings'
 
 const props = defineProps<{ values: DailyValue[]; start: string; end: string; selectedDate: string }>()
@@ -59,7 +60,12 @@ const wetDays = computed(() => days.value.filter((d) => (d.mm ?? 0) >= 0.1).leng
     <svg :viewBox="`0 0 ${WIDTH} ${HEIGHT + 1}`" role="img" :aria-label="`${t.last30Days}: ${t.total} ${formatMm(total)}`" @mouseleave="hovered = null">
       <line :x1="0" :x2="WIDTH" :y1="HEIGHT + 0.5" :y2="HEIGHT + 0.5" class="baseline" />
       <g v-for="(d, i) in days" :key="d.date">
-        <path v-if="d.mm !== null && d.mm > 0" :d="barPath(i, d.mm)" :class="['bar', { selected: d.date === selectedDate }]" />
+        <path
+          v-if="d.mm !== null && d.mm > 0"
+          :d="barPath(i, d.mm)"
+          :class="['bar', { selected: d.date === selectedDate }]"
+          :fill="rainClass(d.mm).color"
+        />
         <circle v-else-if="d.mm === null" :cx="i * slot + slot / 2" :cy="HEIGHT - 3" r="2" class="missing" />
         <!-- Full-height hit target, larger than the bar itself. -->
         <rect
@@ -112,11 +118,10 @@ svg {
   stroke: var(--border);
   stroke-width: 1;
 }
-.bar {
-  fill: #3987e5;
-}
+/* Bars use the map's rainfall colours; the selected date gets a white outline. */
 .bar.selected {
-  fill: #cde2fb;
+  stroke: #fff;
+  stroke-width: 1.5;
 }
 .missing {
   fill: none;

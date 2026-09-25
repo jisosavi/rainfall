@@ -8,7 +8,7 @@ import { t } from '../strings'
     <h2>{{ t.legendTitle }}</h2>
     <ul>
       <li v-for="c in [...RAIN_CLASSES].reverse()" :key="c.label">
-        <span class="swatch filled" :style="{ background: c.color }" />{{ c.label }}
+        <span class="swatch" :style="{ background: c.color }" />{{ c.label }}
       </li>
       <li><span class="swatch hollow" />{{ t.noData }}</li>
     </ul>
@@ -43,9 +43,6 @@ li {
   height: 12px;
   border-radius: 50%;
   flex: none;
-}
-.swatch.filled {
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.55);
 }
 .swatch.hollow {
   border: 2px solid #fff;

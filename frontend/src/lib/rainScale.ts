@@ -1,5 +1,7 @@
-// Ordinal blue ramp, pale (dry) → deep (heavy): more rain, deeper colour. Validated with
-// the dataviz palette validator (--ordinal --mode dark, surface #1b1b1d): all checks pass.
+// Weather-map style scale: white (dry) → blues → yellow → orange → red (heavy).
+// Checked with the dataviz palette validator (--mode dark, surface #1b1b1d): adjacent
+// classes pass normal-vision (ΔE >= 16) and colour-blind (ΔE >= 13.7) separation, and
+// every colour clears 3:1 contrast on the map. Dry is white filled; no data is a hollow ring.
 export interface RainClass {
   label: string
   color: string
@@ -13,12 +15,12 @@ const hexToRgb = (hex: string): [number, number, number] => [
 ]
 
 const classes: Array<[string, string]> = [
-  ['Dry (0 mm)', '#cde2fb'],
-  ['0.1–0.9 mm', '#9ec5f4'],
-  ['1–4.9 mm', '#6da7ec'],
-  ['5–9.9 mm', '#3987e5'],
-  ['10–19.9 mm', '#256abf'],
-  ['20 mm or more', '#184f95'],
+  ['Dry (0 mm)', '#eef2f6'],
+  ['0.1–0.9 mm', '#8ec8f0'],
+  ['1–4.9 mm', '#3f97e0'],
+  ['5–9.9 mm', '#f6dc4c'],
+  ['10–19.9 mm', '#f3922b'],
+  ['20 mm or more', '#e3342f'],
 ]
 
 export const RAIN_CLASSES: RainClass[] = classes.map(([label, color]) => ({ label, color, rgb: hexToRgb(color) }))

@@ -21,9 +21,8 @@ const FINLAND_BOUNDS: [[number, number], [number, number]] = [
   [19.0, 59.6],
   [31.6, 70.1],
 ]
+const MAP_SURFACE: [number, number, number, number] = [12, 12, 12, 255]
 const WHITE: [number, number, number, number] = [255, 255, 255, 235]
-// Thin light outline so the deepest (wettest) blues stay visible on the dark map.
-const OUTLINE: [number, number, number, number] = [255, 255, 255, 140]
 
 // Hollow (no data) first, then dry to wet, so the heaviest rainfall is drawn on top.
 function drawOrder(stations: StationDay[]): StationDay[] {
@@ -41,10 +40,11 @@ function buildLayer() {
     stroked: true,
     filled: true,
     lineWidthUnits: 'pixels',
-    getLineWidth: (d) => (d.id === selected ? 3 : d.has_data ? 1 : 2),
+    getLineWidth: (d) => (d.id === selected ? 3 : d.has_data ? 1.5 : 2),
     getFillColor: (d) =>
       d.has_data && d.precipitation_mm !== null ? [...rainClass(d.precipitation_mm).rgb, 255] : [0, 0, 0, 0],
-    getLineColor: (d) => (d.id === selected || !d.has_data ? WHITE : OUTLINE),
+    // Filled circles get a thin ring in the map colour so overlapping stations stay separate.
+    getLineColor: (d) => (d.id === selected || !d.has_data ? WHITE : MAP_SURFACE),
     pickable: true,
     autoHighlight: true,
     highlightColor: [255, 255, 255, 60],

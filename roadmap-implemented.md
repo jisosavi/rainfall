@@ -4,7 +4,7 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
-| 2026-09-25 11:49 | Rainfall colours reversed: more rain now gives a deeper blue, and dry stations are palest. Filled circles got a thin light outline so the deepest blues stay visible on the dark map. | Reverse rainfall colour scale |
+| 2026-09-25 11:54 | Weather-map colour scale: white (dry) → light blue → blue → yellow → orange → red (20 mm or more), checked for colour-blind separation. The 30-day chart bars use the same colours. | Use a weather-map colour scale for rainfall |
 | 2026-09-25 | Code licensed under GPL-3.0-or-later (`LICENSE`). Repository made public. Feedback through GitHub Issues, with feedback and bug report templates, linked from the About dialog. Documentation cleaned up; roadmap split into this file and `roadmap.md`. | Prepare for public repo |
 | 2026-09-25 11:32 | Station history endpoint live in production | — |
 | 2026-09-25 11:31 | Frontend (`frontend/`): map with rainfall colour classes and hollow no-data circles, date navigation, station panel with a 30-day chart, station list, About dialog, shareable links. Backend: `GET /api/stations/{id}/history`. | Add frontend map app |
