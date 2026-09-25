@@ -13,7 +13,7 @@ Facts verified against the live API (2026-09):
 import logging
 import time
 import xml.etree.ElementTree as ET
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 
@@ -122,3 +122,35 @@ def fetch_daily(client: httpx.Client, start: date, end: date, retries: int = 3) 
             logger.warning("FMI request %s..%s failed (%s), retrying in %ss", start, end, exc, wait)
             time.sleep(wait)
     return []
+
+
+HOURLY_QUERY = "fmi::observations::weather::hourly::timevaluepair"
+
+
+def fetch_hourly_precipitation(client: httpx.Client, fmisid: str, day: date) -> list[float]:
+    """Hourly rainfall (PRA_PT1H_ACC, mm) for our day D: the hours ending 07 UTC on D through
+    06 UTC on D+1. Missing hours are left out. Used to confirm unusually high daily values."""
+    response = client.get(
+        WFS_URL,
+        params={
+            "service": "WFS",
+            "version": "2.0.0",
+            "request": "getFeature",
+            "storedquery_id": HOURLY_QUERY,
+            "fmisid": fmisid,
+            "parameters": "PRA_PT1H_ACC",
+            "starttime": f"{day.isoformat()}T07:00:00Z",
+            "endtime": f"{(day + timedelta(days=1)).isoformat()}T06:00:00Z",
+        },
+    )
+    response.raise_for_status()
+    values = []
+    for tvp in ET.fromstring(response.content).iterfind(".//wml2:MeasurementTVP", NS):
+        text = (tvp.findtext("wml2:value", namespaces=NS) or "").strip()
+        try:
+            value = float(text)
+        except ValueError:
+            continue
+        if value == value and value >= 0:  # skip NaN and negative codes
+            values.append(value)
+    return values

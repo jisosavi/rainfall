@@ -63,7 +63,7 @@ const wetDays = computed(() => days.value.filter((d) => (d.mm ?? 0) >= 0.1).leng
         <path
           v-if="d.mm !== null && d.mm > 0"
           :d="barPath(i, d.mm)"
-          :class="['bar', { selected: d.date === selectedDate, suspect: d.flag }]"
+          :class="['bar', { selected: d.date === selectedDate, suspect: d.flag === 'suspect_spatial' }]"
           :fill="rainClass(d.mm).color"
         />
         <circle v-else-if="d.mm === null" :cx="i * slot + slot / 2" :cy="HEIGHT - 3" r="2" class="missing" />

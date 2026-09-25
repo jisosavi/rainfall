@@ -74,7 +74,8 @@ const swatch = (s: Section) => (s.value !== null ? SCALES[s.parameter].classOf(s
         <span v-else class="swatch hollow" />
         {{ formatValue(s.parameter, s.value) }}
       </p>
-      <p v-if="s.flag" class="suspect" role="note">⚠ {{ t.suspectLong }}</p>
+      <p v-if="s.flag === 'suspect_spatial'" class="suspect" role="note">⚠ {{ t.suspectLong }}</p>
+      <p v-else-if="s.flag === 'confirmed_hourly'" class="confirmed" role="note">✓ {{ t.confirmedLong }}</p>
 
       <template v-if="s.parameter === 'precipitation'">
         <HistoryChart
@@ -215,6 +216,12 @@ h3 {
   font-size: 12px;
   line-height: 1.4;
   color: #fab219;
+}
+.confirmed {
+  margin: -4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
 }
 .note,
 .muted {

@@ -40,7 +40,7 @@ const sorted = computed(() =>
               /><span class="name">{{ s.name }}</span><span class="tag">{{ t.countryTag[s.source] }}</span>
             </td>
             <td class="num">
-              <span v-if="s.flag" class="suspect" :title="t.suspectLong" :aria-label="t.suspectShort">⚠ </span>{{ formatValue(parameter, s.has_data ? s.value : null) }}
+              <span v-if="s.flag === 'suspect_spatial'" class="suspect" :title="t.suspectLong" :aria-label="t.suspectShort">⚠ </span>{{ formatValue(parameter, s.has_data ? s.value : null) }}
             </td>
           </tr>
         </tbody>

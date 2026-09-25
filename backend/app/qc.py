@@ -10,12 +10,16 @@ a flag needs every neighbour to be much lower. Without enough neighbours nothing
 For snow depth, altitude matters more than distance (a mountain station has far more snow
 than a valley 20 km away), so only neighbours within MAX_ELEVATION_DIFF are compared when
 both elevations are known (MET Norway and SMHI give them; FMI's daily data doesn't).
+Flagged rainfall is then checked against the station's own hourly readings: if they add up
+to the daily value, the storm was real and the flag becomes `confirmed_hourly` (ranked as
+normal). Stations without hourly data (mostly manual) keep the flag.
 Hard limits for impossible values are separate (app.ingest.common.PLAUSIBLE_MAX).
 """
 
 import logging
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
@@ -29,6 +33,10 @@ from app.ingest.common import date_chunks
 logger = logging.getLogger(__name__)
 
 SUSPECT_SPATIAL = "suspect_spatial"
+CONFIRMED_HOURLY = "confirmed_hourly"
+
+# (source, source_station_id, day) -> the station's hourly rainfall values for our day D.
+HourlyFetcher = Callable[[str, str, date], list[float]]
 
 
 @dataclass(frozen=True)
@@ -83,6 +91,38 @@ def find_suspects(day_values: dict[UUID, float], positions: dict[UUID, Position]
     return suspects
 
 
+def hourly_confirms(daily: float, hourly: list[float]) -> bool:
+    """The hours add up to the daily value (within 5 mm or 20%). Some stations only report
+    hours with rain, so the number of hours isn't required, only that the sum matches."""
+    return bool(hourly) and abs(sum(hourly) - daily) <= max(5.0, 0.2 * daily)
+
+
+def confirm_with_hourly(session: Session, start: date, end: date, fetch_hourly: HourlyFetcher) -> int:
+    """Re-check suspect rainfall in start..end against hourly readings. Returns number confirmed."""
+    rows = session.execute(
+        select(DailyValue, Station.source, Station.source_station_id)
+        .join(Station)
+        .where(
+            DailyValue.parameter == "precipitation",
+            DailyValue.flag == SUSPECT_SPATIAL,
+            DailyValue.date.between(start, end),
+        )
+    ).all()
+    confirmed = 0
+    for row, source, source_station_id in rows:
+        try:
+            hourly = fetch_hourly(source, source_station_id, row.date)
+        except Exception as exc:  # a failed lookup leaves the flag in place
+            logger.warning("qc hourly %s %s %s failed: %s", source, source_station_id, row.date, exc)
+            continue
+        if hourly_confirms(row.value, hourly):
+            row.flag = CONFIRMED_HOURLY
+            confirmed += 1
+    session.commit()
+    logger.info("qc precipitation %s..%s: %d of %d suspect values confirmed by hourly readings", start, end, confirmed, len(rows))
+    return confirmed
+
+
 def flag_spatial_outliers(
     session: Session, start: date, end: date, parameters: tuple[str, ...] = PARAMETERS
 ) -> dict[str, int]:
@@ -102,14 +142,21 @@ def flag_spatial_outliers(
             session.execute(update(DailyValue).where(window, DailyValue.flag == SUSPECT_SPATIAL).values(flag=None))
 
             by_day: dict[date, dict[UUID, float]] = defaultdict(dict)
+            confirmed: set[tuple[UUID, date]] = set()
             rows = session.execute(
-                select(DailyValue.station_id, DailyValue.date, DailyValue.value).where(window, DailyValue.has_data.is_(True))
+                select(DailyValue.station_id, DailyValue.date, DailyValue.value, DailyValue.flag).where(
+                    window, DailyValue.has_data.is_(True)
+                )
             )
-            for station_id, day, value in rows:
+            for station_id, day, value, flag in rows:
                 by_day[day][station_id] = value
+                if flag == CONFIRMED_HOURLY:
+                    confirmed.add((station_id, day))
 
             for day, day_values in by_day.items():
                 for station_id in find_suspects(day_values, positions, rule):
+                    if (station_id, day) in confirmed:  # already verified as real
+                        continue
                     session.execute(
                         update(DailyValue)
                         .where(

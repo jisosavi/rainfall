@@ -62,3 +62,36 @@ def test_flags_are_recomputed(db):
     db.commit()
     assert flag_spatial_outliers(db, date(2025, 7, 1), date(2025, 7, 31), ("precipitation",)) == {"precipitation": 0}
     assert db.scalars(select(DailyValue).where(DailyValue.flag == SUSPECT_SPATIAL)).all() == []
+
+
+def test_hourly_confirmation_rule():
+    from app.qc import hourly_confirms
+
+    # Real cases: Nurmes Valtimo 44.1 mm (hours 44.0), Kanstadbotn 60.2 mm (hours 53.4).
+    assert hourly_confirms(44.1, [37.0, 3.6, 2.9, 0.6])
+    assert hourly_confirms(60.2, [7.5] * 7 + [0.9])  # 53.4 mm, within 20%
+    # Ellinge ARV reports only hours with rain: 5 hours, exact sum.
+    assert hourly_confirms(31.6, [24.8, 2.6, 2.2, 1.0, 1.0])
+    # Torpshammar A: 76.2 mm daily, but the hours add up to 39.6 mm -> stays suspect.
+    assert not hourly_confirms(76.2, [16.6, 11.3, 9.0, 2.7])
+    assert not hourly_confirms(50.0, [])  # no hourly data
+
+
+def test_confirmed_values_stay_confirmed_and_refetch_resets(db):
+    from app.ingest.common import Normalized, StationSeries
+    from app.ingest.service import store_series
+    from app.qc import CONFIRMED_HOURLY, confirm_with_hourly
+
+    series = [
+        StationSeries("fmi", str(i), f"S{i}", None, 61.0 + i * 0.05, 25.0, "FI", [(date(2025, 7, 26), Normalized(v, True, str(v)))])
+        for i, v in enumerate([76.0, 10.0, 8.0, 2.0])
+    ]
+    store_series(db, series)
+    flag_spatial_outliers(db, date(2025, 7, 26), date(2025, 7, 26), ("precipitation",))
+    assert confirm_with_hourly(db, date(2025, 7, 26), date(2025, 7, 26), lambda *_: [70.0, 6.0]) == 1
+    # A later QC run keeps the confirmation instead of flagging again.
+    flag_spatial_outliers(db, date(2025, 7, 26), date(2025, 7, 26), ("precipitation",))
+    assert db.scalar(select(DailyValue.flag).where(DailyValue.value == 76.0)) == CONFIRMED_HOURLY
+    # Re-fetching the value resets our flag, so it is judged afresh.
+    store_series(db, series[:1])
+    assert db.scalar(select(DailyValue.flag).where(DailyValue.value == 76.0)) is None

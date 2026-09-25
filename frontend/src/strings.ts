@@ -22,6 +22,7 @@ export const t = {
   suspectShort: 'Unusually high',
   suspectLong: 'Unusually high compared with nearby stations that day. Shown as reported, but left out of rankings.',
   suspectLegend: 'Unusually high vs nearby',
+  confirmedLong: 'Unusually high for the area, but confirmed by the station’s own hourly readings.',
   close: 'Close',
   region: 'Municipality',
   owner: 'Station owner',

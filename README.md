@@ -180,6 +180,8 @@ After every ingestion, `app/qc.py` compares unusually high values with the same 
 | Rainfall | 30 mm | within 50 km | > 3 × highest neighbour + 20 mm | 3 neighbours with data |
 | Snow depth | 50 cm | within 30 km **and ±300 m altitude** | > 3 × highest neighbour + 50 cm | 3 neighbours with data |
 
+Flagged **rainfall** is then checked against the station's own hourly readings (FMI `PRA_PT1H_ACC`, Frost `sum(precipitation_amount PT1H)`, SMHI parameter 7). If they add up to the daily value (within 5 mm or 20%), the storm was real: the flag becomes `confirmed_hourly`, the value is ranked as normal, and the panel notes it. Stations without hourly data (mostly manual) keep the flag. On 2025–2026 data this confirmed 5 of 17 flags, e.g. Nurmes Valtimo 44 mm with 37 mm in one hour; Torpshammar A's 76 mm stayed flagged, its hours adding up to only 40 mm.
+
 Comparing with the highest neighbour protects real local downpours (e.g. 114 mm in Multia, July 2026, is not flagged). The altitude window keeps mountain stations from being compared with valleys; altitude (`stations.elevation_m`) comes from MET Norway and SMHI, FMI's daily data has none. On 2025–2026 data it flags about 17 rainfall and 90 snow values. Run it by hand with `python -m app.ingest --qc-only --start YYYY-MM-DD`.
 
 ### Licences

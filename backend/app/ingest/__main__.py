@@ -23,7 +23,7 @@ from app.config import get_settings
 from app.db.session import SessionLocal
 from app.ingest import fmi, met, smhi
 from app.db.models import PRECIPITATION, SNOW_DEPTH
-from app.qc import flag_spatial_outliers
+from app.qc import confirm_with_hourly, flag_spatial_outliers
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
@@ -61,7 +61,9 @@ def main() -> int:
     if args.qc_only:
         yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
         with SessionLocal() as session:
-            flag_spatial_outliers(session, args.start or settings.ingest_start_date, args.end or yesterday)
+            qc_start, qc_end = args.start or settings.ingest_start_date, args.end or yesterday
+            flag_spatial_outliers(session, qc_start, qc_end)
+            _confirm_hourly(session, qc_start, qc_end, settings)
         return 0
 
     failed = False
@@ -94,12 +96,32 @@ def main() -> int:
         if covered:
             # Neighbours come from all sources, so check the whole span this run touched.
             try:
-                flag_spatial_outliers(session, min(s for s, _ in covered), max(e for _, e in covered))
+                qc_start, qc_end = min(s for s, _ in covered), max(e for _, e in covered)
+                flag_spatial_outliers(session, qc_start, qc_end)
+                _confirm_hourly(session, qc_start, qc_end, settings)
             except Exception:
                 logger.exception("qc: spatial check failed")
                 session.rollback()
                 failed = True
     return 1 if failed else 0
+
+
+def _confirm_hourly(session, start: date, end: date, settings) -> None:
+    """Check suspect rainfall against each station's hourly readings (few requests per run)."""
+    smhi_cache: dict = {}
+    with (
+        httpx.Client(timeout=120, headers={"User-Agent": met.USER_AGENT}) as fmi_client,
+        smhi.make_client() as smhi_client,
+        met.make_client(settings.frost_client_id or "") as met_client,
+    ):
+        def fetch(source: str, station_id: str, day: date) -> list[float]:
+            if source == "fmi":
+                return fmi.fetch_hourly_precipitation(fmi_client, station_id, day)
+            if source == "met":
+                return met.fetch_hourly_precipitation(met_client, station_id, day) if settings.frost_client_id else []
+            return smhi.fetch_hourly_precipitation(smhi_client, station_id, day, cache=smhi_cache)
+
+        confirm_with_hourly(session, start, end, fetch)
 
 
 def _ingest(session, source: str, start: date, end: date, settings, archive_refresh: bool) -> int:

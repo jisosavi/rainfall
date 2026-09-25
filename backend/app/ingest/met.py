@@ -9,7 +9,7 @@ Facts verified against the live API (2026-09):
   Jan Mayen).
 - Frost already converts "no precipitation" (-1) to 0.0. It has no missing-value marker:
   a day without an observation is simply absent, so missing rows are filled in here.
-- Frost answers 404 when a query has no data.
+- Frost answers 404 when a query has no data, 412 when a station lacks the element.
 - Snow depth: surface_snow_thickness, daily (P1D) at PT6H, in cm. It is a reading, not a
   total: label D is the reading at 06 UTC on D (equal to the hourly value then), stored
   under D with no shift. 0 means no snow. Many stations report it irregularly or only in
@@ -117,7 +117,8 @@ def _get(client: httpx.Client, path: str, params: dict, retries: int = 3) -> lis
     for attempt in range(1, retries + 1):
         try:
             response = client.get(FROST_URL + path, params=params)
-            if response.status_code == 404:
+            # 404: no data; 412: the station has no such element (e.g. no hourly series).
+            if response.status_code in (404, 412):
                 return []
             response.raise_for_status()
             return response.json().get("data", [])
@@ -254,3 +255,25 @@ def fetch_daily(
             if series.values:
                 result.append(series)
     return result
+
+
+def fetch_hourly_precipitation(client: httpx.Client, station_id: str, day: date) -> list[float]:
+    """Hourly rainfall (sum(precipitation_amount PT1H), mm) for our day D, 06 UTC on D to
+    06 UTC on D+1. Values with poor quality codes are left out. Used to confirm unusually
+    high daily values."""
+    items = _get(
+        client,
+        "/observations/v0.jsonld",
+        {
+            "sources": station_id,
+            "elements": "sum(precipitation_amount PT1H)",
+            "referencetime": f"{day.isoformat()}T06:00:00Z/{(day + timedelta(days=1)).isoformat()}T06:00:00Z",
+        },
+    )
+    values = []
+    for item in items:
+        for observation in item.get("observations", [])[:1]:
+            normalized = parse_quality(observation)
+            if normalized.has_data:
+                values.append(normalized.value)
+    return values

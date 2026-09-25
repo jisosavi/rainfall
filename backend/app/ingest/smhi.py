@@ -239,3 +239,51 @@ def slice_series(series: list[StationSeries], start: date, end: date) -> list[St
                 )
             )
     return out
+
+
+HOURLY_PARAMETER = 7  # "Nederbördsmängd, summa 1 timme"
+
+
+def fetch_hourly_precipitation(
+    client: httpx.Client, station_id: str, day: date, today: date | None = None, cache: dict | None = None
+) -> list[float]:
+    """Hourly rainfall (parameter 7, mm) for our day D: hours ending after 06 UTC on D up to
+    06 UTC on D+1. Recent days come from latest-months, older ones from the corrected archive
+    (cached per station in `cache`). Manual stations have no hourly data: returns []."""
+    today = today or datetime.now(timezone.utc).date()
+    start = datetime(day.year, day.month, day.day, 6, tzinfo=timezone.utc)
+    end = start + timedelta(days=1)
+    base = f"{BASE_URL}/{HOURLY_PARAMETER}/station/{station_id}/period"
+    readings: list[tuple[datetime, str | None, str | None]] = []
+    if day >= today - timedelta(days=LATEST_MONTHS_DAYS):
+        response = _get(client, f"{base}/latest-months/data.json")
+        if response:
+            readings = [
+                (datetime.fromtimestamp(v["date"] / 1000, timezone.utc), v.get("value"), v.get("quality"))
+                for v in response.json().get("value") or []
+            ]
+    else:
+        key = (station_id, "archive")
+        if cache is not None and key in cache:
+            readings = cache[key]
+        else:
+            response = _get(client, f"{base}/corrected-archive/data.csv")
+            if response:
+                lines = response.text.lstrip("﻿").splitlines()
+                header = next((i for i, line in enumerate(lines) if line.startswith("Datum;")), None)
+                for row in csv.reader(io.StringIO("\n".join(lines[header + 1 :] if header is not None else [])), delimiter=";"):
+                    if len(row) >= 4 and row[0] and row[1]:
+                        try:
+                            when = datetime.fromisoformat(f"{row[0].strip()}T{row[1].strip()}").replace(tzinfo=timezone.utc)
+                        except ValueError:
+                            continue
+                        readings.append((when, row[2].strip() or None, row[3].strip() or None))
+            if cache is not None:
+                cache[key] = readings
+    values = []
+    for when, value, quality in readings:
+        if start < when <= end:
+            normalized = normalize(value, quality)
+            if normalized.has_data:
+                values.append(normalized.value)
+    return values

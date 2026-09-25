@@ -89,6 +89,7 @@ def upsert_precipitation(session: Session, series: list[StationSeries], station_
                 "value": stmt.excluded.value,
                 "has_data": stmt.excluded.has_data,
                 "raw_status": stmt.excluded.raw_status,
+                "flag": None,  # re-judged by app.qc after the run
                 "fetched_at": func.now(),
             },
         )
