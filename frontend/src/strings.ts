@@ -37,6 +37,11 @@ export const t = {
   aboutDeveloperPrefix: 'Developed by',
   developerName: 'Janne Isosävi',
   developerUrl: 'https://github.com/jisosavi',
+  aboutFeedbackPrefix: 'Found a problem or have an idea?',
+  aboutFeedbackLink: 'Send feedback on GitHub',
+  aboutSourceLink: 'Source code',
+  feedbackUrl: 'https://github.com/jisosavi/rainfall/issues/new/choose',
+  sourceUrl: 'https://github.com/jisosavi/rainfall',
   fmiOpenDataUrl: 'https://en.ilmatieteenlaitos.fi/open-data',
 }
 

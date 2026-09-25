@@ -6,7 +6,9 @@ Daily rainfall at Finnish weather stations on a map, based on FMI open data.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
 
-The plan is in [ROADMAP.md](ROADMAP.md).
+Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-implemented.md](roadmap-implemented.md).
+
+**Feedback:** found a problem or have an idea? [Open an issue](https://github.com/jisosavi/rainfall/issues/new/choose) (you need a GitHub account).
 
 ## Structure
 

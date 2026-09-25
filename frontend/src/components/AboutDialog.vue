@@ -27,6 +27,11 @@ function onClick(event: MouseEvent) {
       <p>
         {{ t.aboutDeveloperPrefix }}
         <a :href="t.developerUrl" target="_blank" rel="noopener">{{ t.developerName }}</a>.
+        <a :href="t.sourceUrl" target="_blank" rel="noopener">{{ t.aboutSourceLink }}</a>
+      </p>
+      <p>
+        {{ t.aboutFeedbackPrefix }}
+        <a :href="t.feedbackUrl" target="_blank" rel="noopener">{{ t.aboutFeedbackLink }}</a>
       </p>
     </div>
   </dialog>

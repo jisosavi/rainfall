@@ -1,0 +1,16 @@
+name: Feedback or idea
+description: Suggest an improvement or tell us what you think of Rainfall.
+labels: ["feedback"]
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: What would make Rainfall more useful for you?
+    validations:
+      required: true
+  - type: input
+    id: context
+    attributes:
+      label: Where
+      description: Optional. The page link (it includes the date and station), or the part of the app you mean.

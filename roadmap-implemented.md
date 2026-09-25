@@ -1,0 +1,13 @@
+# Implemented
+
+Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work is in [roadmap.md](roadmap.md).
+
+| When | What | Ref |
+|---|---|---|
+| 2026-09-25 | Repository made public. Feedback through GitHub Issues, with feedback and bug report templates, linked from the About dialog. Documentation cleaned up; roadmap split into this file and `roadmap.md`. | this commit |
+| 2026-09-25 11:32 | Station history endpoint live in production | `a8b7724` |
+| 2026-09-25 11:31 | Frontend (`frontend/`): map with rainfall colour classes and hollow no-data circles, date navigation, station panel with a 30-day chart, station list, About dialog, shareable links. Backend: `GET /api/stations/{id}/history`. | `a8b7724` |
+| 2026-09-25 10:45 | First production data load by the Railway cron job `rainfall-ingest` (07:15 and 13:15 UTC): 632 dates from 2025-01-01, 172 stations a day | — |
+| 2026-09-25 10:28 | FMI ingestion `python -m app.ingest`: backfill on an empty database, re-fetch of the last 10 days, safe to repeat. FMI data conventions verified against the live API. | `77c5c76` |
+| 2026-09-25 ~10:15 | Railway web service and PostgreSQL deployed at https://rainfall-production.up.railway.app; `/health`, database and CORS verified | — |
+| 2026-09-25 10:05 | Backend foundation: FastAPI API, SQLAlchemy models with constraints, Alembic migrations, Railway-ready Docker, tests | `d16ccab` |
