@@ -27,7 +27,8 @@ def main() -> int:
     parser.add_argument("--end", type=date.fromisoformat)
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    # stdout, not the default stderr: Railway marks everything on stderr as an error.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = get_settings()
 
