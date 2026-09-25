@@ -34,3 +34,16 @@ class DatesResponse(BaseModel):
 
 class YearsResponse(BaseModel):
     years: list[int]
+
+
+class DailyValue(BaseModel):
+    date: date
+    precipitation_mm: float | None = None
+    has_data: bool
+
+
+class StationHistoryResponse(BaseModel):
+    station_id: UUID
+    start: date
+    end: date
+    values: list[DailyValue]

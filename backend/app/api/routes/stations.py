@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 from app.db.models import DailyPrecipitation, Station
 from app.db.session import get_db
 from app.schemas.station import (
+    DailyValue,
     DatesResponse,
     LatestDateResponse,
     StationDay,
+    StationHistoryResponse,
     StationsForDateResponse,
     YearsResponse,
 )
@@ -99,6 +101,41 @@ def get_station_detail(
     ).scalar_one_or_none()
 
     return _station_day(station, day, record)
+
+
+MAX_HISTORY_DAYS = 366
+
+
+@router.get("/stations/{station_id}/history", response_model=StationHistoryResponse)
+def get_station_history(
+    station_id: UUID,
+    start: date | None = Query(None, description="Defaults to 29 days before end."),
+    end: date | None = Query(None, description="Defaults to the latest date with data."),
+    db: Session = Depends(get_db),
+):
+    if db.get(Station, station_id) is None:
+        raise HTTPException(status_code=404, detail="Station not found.")
+
+    end = _resolve_date(db, end)
+    start = start or end - timedelta(days=29)
+    if start > end:
+        raise HTTPException(status_code=422, detail="start must not be after end.")
+    if (end - start).days >= MAX_HISTORY_DAYS:
+        raise HTTPException(status_code=422, detail=f"Range is limited to {MAX_HISTORY_DAYS} days.")
+
+    rows = db.execute(
+        select(DailyPrecipitation)
+        .where(DailyPrecipitation.station_id == station_id)
+        .where(DailyPrecipitation.date.between(start, end))
+        .order_by(DailyPrecipitation.date.asc())
+    ).scalars()
+
+    return StationHistoryResponse(
+        station_id=station_id,
+        start=start,
+        end=end,
+        values=[DailyValue(date=r.date, precipitation_mm=r.precipitation_mm, has_data=r.has_data) for r in rows],
+    )
 
 
 @router.get("/dates", response_model=DatesResponse)

@@ -77,3 +77,20 @@ def test_settings_parse_railway_values(monkeypatch):
     settings = Settings(_env_file=None)
     assert settings.database_url == "postgresql+psycopg://u:p@host:5432/railway"
     assert settings.cors_origins == ["https://isosavi.com", "https://www.isosavi.com"]
+
+
+def test_station_history(client, seeded):
+    station_id = seeded["helsinki"].id
+    body = client.get(f"/api/stations/{station_id}/history").json()
+    assert (body["start"], body["end"]) == ("2026-08-26", "2026-09-24")
+    assert body["values"] == [{"date": "2026-09-24", "precipitation_mm": 4.5, "has_data": True}]
+
+    body = client.get(f"/api/stations/{station_id}/history", params={"start": "2025-12-01", "end": "2026-09-30"}).json()
+    assert [v["date"] for v in body["values"]] == ["2025-12-31", "2026-09-24"]
+
+
+def test_station_history_validation(client, seeded):
+    station_id = seeded["helsinki"].id
+    assert client.get(f"/api/stations/{uuid4()}/history").status_code == 404
+    assert client.get(f"/api/stations/{station_id}/history", params={"start": "2026-02-01", "end": "2026-01-01"}).status_code == 422
+    assert client.get(f"/api/stations/{station_id}/history", params={"start": "2024-01-01", "end": "2026-01-01"}).status_code == 422

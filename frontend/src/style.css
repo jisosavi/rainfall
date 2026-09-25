@@ -1,0 +1,108 @@
+:root {
+  color-scheme: dark;
+  --surface: #161617;
+  --surface-raised: #232326;
+  --border: #3a3a3f;
+  --border-subtle: #2a2a2e;
+  --text-primary: #f2f2f3;
+  --text-secondary: #b4b4ba;
+  --text-muted: #85858c;
+  --link: #86b6ef;
+  --focus: #86b6ef;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #0c0c0c;
+}
+
+.panel {
+  background: rgb(22 22 23 / 0.94);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(6px);
+}
+
+button {
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) {
+  border-color: #5a5a62;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+button.small {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* deck.gl tooltip */
+.map-tooltip {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 9px !important;
+  font-size: 12px !important;
+  line-height: 1.4;
+}
+
+/* MapLibre controls in dark */
+.maplibregl-ctrl-group {
+  background: var(--surface-raised);
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--border);
+}
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib.maplibregl-compact-show {
+  background: rgb(22 22 23 / 0.9) !important;
+  color: var(--text-secondary) !important;
+}
+.maplibregl-ctrl-attrib-inner {
+  color: var(--text-secondary);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--text-secondary);
+}
+.maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
