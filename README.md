@@ -20,6 +20,8 @@ backend/
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
   Dockerfile, start.sh, railway.json
+scripts/
+  check_docs.py     docs-vs-code check to run before pushing
 frontend/
   src/components/   map, legend, date control, station panel, list, about dialog
   src/api.ts        API types and queries
@@ -37,7 +39,7 @@ cp .env.example .env        # then edit DATABASE_URL
 pytest                      # in-memory SQLite, no database needed
 alembic upgrade head
 uvicorn app.main:app --reload
-python -m app.ingest        # load data; --source fmi|met|smhi|all (default all)
+python -m app.ingest        # load data; --source fmi|met|smhi|all (default all), optional --start/--end YYYY-MM-DD
 ```
 
 After a model change: `alembic revision --autogenerate -m "..."`. Review the generated file before committing it.
@@ -54,6 +56,14 @@ After a model change: `alembic revision --autogenerate -m "..."`. Review the gen
 | `INGEST_REFETCH_DAYS` | ingest | Recent days re-fetched on every run. Default `10`. |
 | `SMHI_ARCHIVE_REFRESH_DAYS` | ingest | Days re-loaded by `--archive-refresh`. Default `130`. |
 | `FROST_CLIENT_ID` | ingest | MET Norway Frost client ID ([register free](https://frost.met.no/auth/requestCredentials.html)). Without it, MET is skipped. The client secret is not needed. Never commit it. |
+
+## Before pushing
+
+```sh
+python3 scripts/check_docs.py
+```
+
+It checks that the docs still match the code: every setting, API endpoint, migration, data source and command option is documented; the README cron schedule matches the times in the About popup; commit titles in `roadmap-implemented.md` exist and recent feature commits are logged; no finished items remain in `roadmap.md`; relative links work. It uses only the Python standard library. It exits with 1 on any FAIL; add `--strict` to fail on warnings too.
 
 ## Deployment (Railway)
 
