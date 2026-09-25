@@ -1,20 +1,54 @@
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
-import { useStationHistory, type StationDay } from '../api'
-import { rainClass } from '../lib/rainScale'
-import { formatDate, formatMm, t } from '../strings'
+import { useStationHistory, type DailyValue, type Parameter, type StationDay } from '../api'
+import { SCALES } from '../lib/scales'
+import { formatDate, formatValue, t } from '../strings'
 import HistoryChart from './HistoryChart.vue'
+import SnowChart from './SnowChart.vue'
 
-const props = defineProps<{ station: StationDay }>()
+// `station` is the station on the shown date for the measurement shown on the map.
+const props = defineProps<{ station: StationDay; parameter: Parameter }>()
 const emit = defineEmits<{ close: []; pickDate: [date: string] }>()
 
-const history = useStationHistory(
-  computed(() => props.station.id),
-  toRef(() => props.station.date),
-)
-const swatch = computed(() =>
-  props.station.has_data && props.station.precipitation_mm !== null ? rainClass(props.station.precipitation_mm).color : null,
-)
+const stationId = computed(() => props.station.id)
+const day = toRef(() => props.station.date)
+
+// The winter containing the shown date runs from 1 October; in spring and summer
+// that is the previous October, so the whole last winter is shown.
+const seasonStartYear = computed(() => {
+  const [y, m] = day.value.split('-').map(Number)
+  return m >= 10 ? y : y - 1
+})
+const seasonStart = computed(() => `${seasonStartYear.value}-10-01`)
+
+const rain = useStationHistory(stationId, day, 'precipitation')
+const snow = useStationHistory(stationId, day, 'snow_depth', seasonStart)
+
+function valueOn(values: DailyValue[] | undefined, date: string): DailyValue | undefined {
+  return values?.find((v) => v.date === date)
+}
+
+interface Section {
+  parameter: Parameter
+  value: number | null
+}
+const sections = computed<Section[]>(() => {
+  const rainValue = valueOn(rain.data.value?.values, day.value)
+  const snowValue = valueOn(snow.data.value?.values, day.value)
+  const all: Section[] = [
+    { parameter: 'precipitation', value: rainValue?.has_data ? rainValue.value : null },
+    { parameter: 'snow_depth', value: snowValue?.has_data ? snowValue.value : null },
+  ]
+  // The map's own value is authoritative for the shown measurement.
+  const shown = all.find((s) => s.parameter === props.parameter)!
+  shown.value = props.station.has_data ? props.station.value : null
+  const hasSnow = (snow.data.value?.values.length ?? 0) > 0 || props.parameter === 'snow_depth'
+  return all
+    .filter((s) => s.parameter === 'precipitation' || hasSnow)
+    .sort((a, b) => Number(b.parameter === props.parameter) - Number(a.parameter === props.parameter))
+})
+
+const swatch = (s: Section) => (s.value !== null ? SCALES[s.parameter].classOf(s.value).color : null)
 </script>
 
 <template>
@@ -27,22 +61,42 @@ const swatch = computed(() =>
       <button type="button" class="icon" :aria-label="t.close" :title="t.close" @click="emit('close')">×</button>
     </header>
 
-    <p class="value">
-      <span v-if="swatch" class="swatch" :style="{ background: swatch }" />
-      <span v-else class="swatch hollow" />
-      {{ station.has_data ? formatMm(station.precipitation_mm) : t.noData }}
-    </p>
+    <section v-for="s in sections" :key="s.parameter" class="measure">
+      <h3>{{ t.parameterLabel[s.parameter] }}</h3>
+      <p class="value" :class="{ secondary: s.parameter !== parameter }">
+        <span v-if="swatch(s)" class="swatch" :style="{ background: swatch(s)! }" />
+        <span v-else class="swatch hollow" />
+        {{ formatValue(s.parameter, s.value) }}
+      </p>
 
-    <HistoryChart
-      v-if="history.data.value"
-      :values="history.data.value.values"
-      :start="history.data.value.start"
-      :end="history.data.value.end"
-      :selected-date="station.date"
-      @pick="emit('pickDate', $event)"
-    />
-    <p v-else-if="history.isError.value" class="muted">{{ t.loadError }}</p>
-    <p v-else class="muted">{{ t.loading }}</p>
+      <template v-if="s.parameter === 'precipitation'">
+        <HistoryChart
+          v-if="rain.data.value"
+          :values="rain.data.value.values"
+          :start="rain.data.value.start"
+          :end="rain.data.value.end"
+          :selected-date="station.date"
+          @pick="emit('pickDate', $event)"
+        />
+        <p v-else-if="rain.isError.value" class="muted">{{ t.loadError }}</p>
+        <p v-else class="muted">{{ t.loading }}</p>
+      </template>
+
+      <template v-else>
+        <SnowChart
+          v-if="snow.data.value && snow.data.value.values.length"
+          :values="snow.data.value.values"
+          :start="snow.data.value.start"
+          :end="snow.data.value.end"
+          :selected-date="station.date"
+          :title="t.winterSeason(seasonStartYear)"
+          @pick="emit('pickDate', $event)"
+        />
+        <p v-else-if="snow.data.value" class="muted">{{ t.noSnowData }}</p>
+        <p v-else-if="snow.isError.value" class="muted">{{ t.loadError }}</p>
+        <p v-else class="muted">{{ t.loading }}</p>
+      </template>
+    </section>
 
     <dl class="meta">
       <div v-if="station.region"><dt>{{ t.region }}</dt><dd>{{ station.region }}</dd></div>
@@ -93,14 +147,32 @@ h2 {
   line-height: 1;
   flex: none;
 }
+.measure {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
 .value {
   margin: 0;
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 10px;
   font-variant-numeric: tabular-nums;
+}
+.value.secondary {
+  font-size: 22px;
 }
 .swatch {
   width: 16px;
@@ -116,6 +188,8 @@ h2 {
   display: grid;
   gap: 6px;
   font-size: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
 }
 .meta div {
   display: flex;

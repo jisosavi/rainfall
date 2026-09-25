@@ -23,7 +23,7 @@ const days = computed(() => {
   const out: Array<{ date: string; mm: number | null }> = []
   for (let d = props.start; d <= props.end; d = addDays(d, 1)) {
     const v = byDate.get(d)
-    out.push({ date: d, mm: v && v.has_data ? v.precipitation_mm : null })
+    out.push({ date: d, mm: v && v.has_data ? v.value : null })
   }
   return out
 })

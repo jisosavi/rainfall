@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.config import Settings
-from app.db.models import DailyPrecipitation
+from app.db.models import DailyValue
 
 
 def test_health(client):
@@ -62,13 +62,13 @@ def test_dates_and_years(client, seeded):
 
 
 def test_check_constraint_rejects_inconsistent_row(db, seeded):
-    db.add(DailyPrecipitation(station_id=seeded["oulu"].id, date=date(2026, 1, 2), precipitation_mm=None, has_data=True))
+    db.add(DailyValue(station_id=seeded["oulu"].id, date=date(2026, 1, 2), value=None, has_data=True))
     with pytest.raises(IntegrityError):
         db.commit()
 
 
 def test_unique_station_date(db, seeded):
-    db.add(DailyPrecipitation(station_id=seeded["helsinki"].id, date=date(2026, 9, 24), precipitation_mm=1.0, has_data=True))
+    db.add(DailyValue(station_id=seeded["helsinki"].id, date=date(2026, 9, 24), value=1.0, has_data=True))
     with pytest.raises(IntegrityError):
         db.commit()
 
@@ -85,7 +85,8 @@ def test_station_history(client, seeded):
     station_id = seeded["helsinki"].id
     body = client.get(f"/api/stations/{station_id}/history").json()
     assert (body["start"], body["end"]) == ("2026-08-26", "2026-09-24")
-    assert body["values"] == [{"date": "2026-09-24", "precipitation_mm": 4.5, "has_data": True}]
+    assert body["values"] == [{"date": "2026-09-24", "value": 4.5, "precipitation_mm": 4.5, "has_data": True}]
+    assert (body["parameter"], body["unit"]) == ("precipitation", "mm")
 
     body = client.get(f"/api/stations/{station_id}/history", params={"start": "2025-12-01", "end": "2026-09-30"}).json()
     assert [v["date"] for v in body["values"]] == ["2025-12-31", "2026-09-24"]
@@ -96,3 +97,30 @@ def test_station_history_validation(client, seeded):
     assert client.get(f"/api/stations/{uuid4()}/history").status_code == 404
     assert client.get(f"/api/stations/{station_id}/history", params={"start": "2026-02-01", "end": "2026-01-01"}).status_code == 422
     assert client.get(f"/api/stations/{station_id}/history", params={"start": "2024-01-01", "end": "2026-01-01"}).status_code == 422
+
+
+def test_snow_depth_parameter(client, db, seeded):
+    from app.db.models import SNOW_DEPTH
+
+    db.add(DailyValue(station_id=seeded["helsinki"].id, parameter=SNOW_DEPTH, date=date(2026, 2, 10), value=19.0, has_data=True))
+    db.add(DailyValue(station_id=seeded["oulu"].id, parameter=SNOW_DEPTH, date=date(2026, 2, 10), value=0.0, has_data=True))
+    db.commit()
+
+    body = client.get("/api/stations", params={"parameter": "snow_depth"}).json()
+    assert (body["date"], body["parameter"], body["unit"]) == ("2026-02-10", "snow_depth", "cm")
+    by_name = {s["name"]: s for s in body["stations"]}
+    assert by_name["Helsinki Kaisaniemi"]["value"] == 19.0
+    assert by_name["Helsinki Kaisaniemi"]["precipitation_mm"] is None  # compat field is rain-only
+    assert by_name["Oulu lentoasema"]["value"] == 0.0
+
+    # Rain endpoints are unaffected by snow rows.
+    assert client.get("/api/latest-date").json() == {"date": "2026-09-24"}
+    assert client.get("/api/latest-date", params={"parameter": "snow_depth"}).json() == {"date": "2026-02-10"}
+    assert client.get("/api/stations", params={"date": "2026-02-10"}).json()["stations"] == []
+
+    history = client.get(
+        f"/api/stations/{seeded['helsinki'].id}/history", params={"parameter": "snow_depth", "start": "2025-10-01", "end": "2026-02-28"}
+    ).json()
+    assert [(v["date"], v["value"]) for v in history["values"]] == [("2026-02-10", 19.0)]
+    assert client.get("/api/dates", params={"parameter": "snow_depth"}).json() == {"dates": ["2026-02-10"]}
+    assert client.get("/api/stations", params={"parameter": "rain"}).status_code == 422

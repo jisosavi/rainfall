@@ -1,10 +1,10 @@
 // All user-facing text (UK English), kept in one place so it can be translated later.
 export const t = {
-  title: 'Nordic rainfall',
-  subtitle: 'Daily precipitation at weather stations in Finland, Norway and Sweden',
+  title: 'Nordic weather observations',
+  subtitle: 'Daily rainfall and snow depth at weather stations in Finland, Norway and Sweden',
   loading: 'Loading…',
   loadError: 'Could not load rainfall data. Please try again later.',
-  noDataYet: 'No rainfall data available yet.',
+  noDataYet: 'No data available yet.',
   noStationsForDate: 'No stations reported on this date.',
   previousDay: 'Previous day',
   nextDay: 'Next day',
@@ -12,9 +12,12 @@ export const t = {
   chooseDate: 'Date',
   showList: 'List',
   hideList: 'Map only',
-  listHeading: 'Stations by rainfall',
+  listHeading: { precipitation: 'Stations by rainfall', snow_depth: 'Stations by snow depth' },
+  measurement: 'Measurement',
+  parameterLabel: { precipitation: 'Rainfall', snow_depth: 'Snow depth' },
   station: 'Station',
   rainfall: 'Rainfall',
+  snowDepth: 'Snow depth',
   noData: 'No data',
   close: 'Close',
   region: 'Municipality',
@@ -22,20 +25,24 @@ export const t = {
   stationId: 'Station ID',
   coordinates: 'Coordinates',
   last30Days: 'Last 30 days',
+  winterSeason: (startYear: number) => `Winter ${startYear}–${String((startYear + 1) % 100).padStart(2, '0')}`,
+  seasonMax: 'Deepest this winter',
+  snowCoverDays: 'Days with snow cover',
+  noSnowData: 'No snow depth data from this station.',
   total: 'Total',
   wetDays: 'Days with rain',
-  measurementNote: 'Each daily value is the total from 06:00 UTC on that date to 06:00 UTC the next day.',
-  legendTitle: 'Rainfall per day',
+  measurementNote: 'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day. Snow depth: measured on the morning of that date.',
+  legendTitle: { precipitation: 'Rainfall per day', snow_depth: 'Snow depth' },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
   attribution: 'Data: FMI, MET Norway and SMHI (CC BY 4.0), processed',
   aboutButton: 'About Rainfall',
   aboutTitle: 'About Rainfall',
   aboutBody:
-    'Nordic rainfall shows the daily precipitation measured at weather stations in Finland, Norway and Sweden on a map. Pick a date to see how much it rained where, and select a station for its recent history.',
+    'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway and Sweden on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
-  aboutDataIntro: 'Rainfall observations come from the national weather services as open data:',
+  aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
-  aboutStationsNote: 'Stations: number on the date shown on the map.',
+  aboutStationsNote: 'Stations: number on the date and measurement shown on the map. Snow depth is available for Finland so far.',
   aboutProcessingNote:
     'The data has been processed: values are quality-filtered, aligned to the same daily period (06:00–06:00 UTC), and days without a value are marked as missing.',
   aboutUpdatesHeading: 'Updates',
@@ -106,4 +113,9 @@ const parse = (iso: string) => new Date(`${iso}T12:00:00Z`)
 
 export const formatDate = (iso: string) => dateFormat.format(parse(iso))
 export const formatShortDate = (iso: string) => shortDateFormat.format(parse(iso))
+const cmFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
+
 export const formatMm = (mm: number | null) => (mm === null ? t.noData : `${mmFormat.format(mm)} mm`)
+export const formatCm = (cm: number | null) => (cm === null ? t.noData : `${cmFormat.format(cm)} cm`)
+export const formatValue = (parameter: 'precipitation' | 'snow_depth', value: number | null) =>
+  parameter === 'snow_depth' ? formatCm(value) : formatMm(value)

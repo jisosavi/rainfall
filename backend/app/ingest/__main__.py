@@ -18,11 +18,14 @@ import httpx
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.ingest import fmi, met, smhi
+from app.db.models import PRECIPITATION, SNOW_DEPTH
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
 
 ALL_SOURCES = ["fmi", "met", "smhi"]
+# Measurement types each source provides.
+SOURCE_PARAMETERS = {"fmi": (PRECIPITATION, SNOW_DEPTH), "met": (PRECIPITATION,), "smhi": (PRECIPITATION,)}
 
 
 def main() -> int:
@@ -52,7 +55,10 @@ def main() -> int:
     failed = False
     with SessionLocal() as session:
         for source in sources:
-            start, end = default_range(session, source, settings.ingest_start_date, settings.ingest_refetch_days)
+            start, end = default_range(
+                session, source, settings.ingest_start_date, settings.ingest_refetch_days,
+                parameters=SOURCE_PARAMETERS[source],
+            )
             if args.archive_refresh:
                 today = datetime.now(timezone.utc).date()
                 start = max(settings.ingest_start_date, today - timedelta(days=settings.smhi_archive_refresh_days))
@@ -60,7 +66,7 @@ def main() -> int:
             if start > end:
                 logger.info("%s: nothing to fetch (%s > %s)", source, start, end)
                 continue
-            logger.info("%s: ingesting daily precipitation %s..%s", source, start, end)
+            logger.info("%s: ingesting %s %s..%s", source, "+".join(SOURCE_PARAMETERS[source]), start, end)
             try:
                 total = _ingest(session, source, start, end, settings, args.archive_refresh)
             except Exception:

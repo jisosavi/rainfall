@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { NotFoundError, useDates, useStations, type Source } from './api'
+import { NotFoundError, useDates, useStations, type Parameter, type Source } from './api'
 import { useSelectionStore } from './stores/selection'
 import { formatDate, t } from './strings'
 import AboutDialog from './components/AboutDialog.vue'
@@ -9,12 +9,18 @@ import CountryFilter from './components/CountryFilter.vue'
 import DateControl from './components/DateControl.vue'
 import MapLegend from './components/MapLegend.vue'
 import RainMap from './components/RainMap.vue'
+import SegmentedControl from './components/SegmentedControl.vue'
 import StationList from './components/StationList.vue'
 import StationPanel from './components/StationPanel.vue'
 
-const { date, stationId, country } = storeToRefs(useSelectionStore())
-const stations = useStations(date)
-const dates = useDates()
+const { date, stationId, country, parameter } = storeToRefs(useSelectionStore())
+const stations = useStations(date, parameter)
+const dates = useDates(parameter)
+
+const parameterOptions: Array<{ value: Parameter; label: string }> = [
+  { value: 'precipitation', label: t.parameterLabel.precipitation },
+  { value: 'snow_depth', label: t.parameterLabel.snow_depth },
+]
 
 const about = ref<InstanceType<typeof AboutDialog>>()
 const showList = ref(false)
@@ -49,7 +55,7 @@ function selectStation(id: string | null) {
 
 <template>
   <main class="app" :class="{ 'has-panel': selectedStation }">
-    <RainMap :stations="stationRows" :selected-id="stationId" @select="selectStation" />
+    <RainMap :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectStation" />
 
     <div class="left-column">
       <header class="top panel">
@@ -60,6 +66,8 @@ function selectStation(id: string | null) {
           </div>
           <button type="button" @click="about?.open()">{{ t.aboutButton }}</button>
         </div>
+
+        <SegmentedControl v-model="parameter" :options="parameterOptions" :label="t.measurement" class="parameter-switch" />
 
         <DateControl :dates="dates.data.value ?? []" :current="shownDate" @change="date = $event" />
 
@@ -79,14 +87,15 @@ function selectStation(id: string | null) {
         </div>
       </header>
 
-      <StationList v-if="showList" :stations="stationRows" :selected-id="stationId" @select="selectStation" />
-      <MapLegend class="legend-position" />
+      <StationList v-if="showList" :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectStation" />
+      <MapLegend class="legend-position" :parameter="parameter" />
     </div>
 
     <StationPanel
       v-if="selectedStation"
       :key="selectedStation.id"
       :station="selectedStation"
+      :parameter="parameter"
       @close="selectStation(null)"
       @pick-date="date = $event"
     />
@@ -136,6 +145,13 @@ h1 {
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--text-secondary);
+}
+.parameter-switch {
+  align-self: flex-start;
+}
+.parameter-switch :deep(button) {
+  font-size: 13px;
+  padding: 5px 14px;
 }
 .controls-row {
   display: flex;

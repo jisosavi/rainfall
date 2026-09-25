@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from sqlalchemy import select
 
-from app.db.models import DailyPrecipitation, Station
+from app.db.models import DailyValue, Station
 from app.ingest import met
 from app.ingest.service import store_series
 
@@ -68,8 +68,8 @@ def test_dates_shifted_to_fmi_convention():
     series, requests = fetch()
     oslo = {d: v for d, v in next(s for s in series if s.source_station_id == "SN18700").values}
     # Frost label 2026-09-16 (15 Sept 06 UTC → 16 Sept 06 UTC) is stored under 2026-09-15.
-    assert oslo[date(2026, 9, 15)].precipitation_mm == 14.9
-    assert oslo[date(2026, 9, 14)].precipitation_mm == 1.2
+    assert oslo[date(2026, 9, 15)].value == 14.9
+    assert oslo[date(2026, 9, 14)].value == 1.2
     # Stored dates 14..18 need Frost labels 15..19, and Frost's end date is exclusive.
     obs_request = next(r for r in requests if r.url.path == "/observations/v0.jsonld")
     assert obs_request.url.params["referencetime"] == "2026-09-15/2026-09-20"
@@ -83,7 +83,7 @@ def test_missing_days_and_bad_quality_become_hollow():
     assert sorted(oslo) == [date(2026, 9, d) for d in range(14, 19)]  # every day present
     assert (oslo[date(2026, 9, 16)].has_data, oslo[date(2026, 9, 16)].raw_status) == (False, "missing")
     assert (svalbard[date(2026, 9, 14)].has_data, svalbard[date(2026, 9, 14)].raw_status) == (False, "0.4|q6")
-    assert (svalbard[date(2026, 9, 15)].precipitation_mm, svalbard[date(2026, 9, 15)].has_data) == (0.0, True)
+    assert (svalbard[date(2026, 9, 15)].value, svalbard[date(2026, 9, 15)].has_data) == (0.0, True)
 
 
 def test_frost_404_means_no_data():
@@ -103,6 +103,6 @@ def test_fmi_and_met_stations_coexist(db):
 
     sources = db.execute(select(Station.source, Station.country)).all()
     assert sorted(set(sources)) == [("fmi", "FI"), ("met", "NO"), ("met", "SJ")]
-    assert db.scalar(select(DailyPrecipitation.precipitation_mm).join(Station).where(
-        Station.source_station_id == "SN18700", DailyPrecipitation.date == date(2026, 9, 15)
+    assert db.scalar(select(DailyValue.value).join(Station).where(
+        Station.source_station_id == "SN18700", DailyValue.date == date(2026, 9, 15)
     )) == 14.9

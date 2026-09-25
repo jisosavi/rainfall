@@ -4,6 +4,8 @@ Facts verified against the live API (2026-09):
 - A value labelled date D covers 06 UTC on D to 06 UTC on D+1, so yesterday's
   value exists only after 06 UTC today. We store FMI's label date as-is.
 - "-1.0" means no precipitation, "0.0" means a trace (< 0.05 mm), "NaN" means missing.
+- Snow depth ("snow", cm) is a morning reading on the label date; "-1.0" means no snow
+  cover. Both parameters come from the same request, one member per station and parameter.
 - The timevaluepair format carries fmisid, name and region per station; the
   simple format has coordinates only.
 """
@@ -24,6 +26,8 @@ STORED_QUERY = "fmi::observations::weather::daily::timevaluepair"
 # Covers all of Finland including Åland and Lapland (lon,lat,lon,lat).
 FINLAND_BBOX = "19,59,32,71"
 SOURCE = "fmi"
+# FMI parameter name -> our measurement type.
+PARAMETERS = {"rrday": "precipitation", "snow": "snow_depth"}
 
 NS = {
     "wfs": "http://www.opengis.net/wfs/2.0",
@@ -70,6 +74,9 @@ def parse_timevaluepair(xml: bytes | str) -> list[StationSeries]:
         if not fmisid or not name:
             continue
         region = location.findtext("target:region", default=None, namespaces=NS)
+        observed = member.find(".//{http://www.opengis.net/om/2.0}observedProperty")
+        href = observed.get("{http://www.w3.org/1999/xlink}href", "") if observed is not None else ""
+        fmi_param = next((p for p in PARAMETERS if f"param={p}&" in href or href.endswith(f"param={p}")), "rrday")
         lat, lon = (float(x) for x in pos.text.split()[:2])
 
         series = StationSeries(
@@ -80,6 +87,7 @@ def parse_timevaluepair(xml: bytes | str) -> list[StationSeries]:
             lat=lat,
             lon=lon,
             country="FI",
+            parameter=PARAMETERS[fmi_param],
         )
         for tvp in member.iterfind(".//wml2:MeasurementTVP", NS):
             time_text = tvp.findtext("wml2:time", namespaces=NS)
@@ -98,7 +106,7 @@ def fetch_daily(client: httpx.Client, start: date, end: date, retries: int = 3) 
         "request": "getFeature",
         "storedquery_id": STORED_QUERY,
         "bbox": FINLAND_BBOX,
-        "parameters": "rrday",
+        "parameters": ",".join(PARAMETERS),
         "starttime": f"{start.isoformat()}T00:00:00Z",
         "endtime": f"{end.isoformat()}T00:00:00Z",
     }

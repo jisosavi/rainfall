@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { RAIN_CLASSES } from '../lib/rainScale'
+import type { Parameter } from '../api'
+import { SCALES } from '../lib/scales'
 import { t } from '../strings'
+
+defineProps<{ parameter: Parameter }>()
 </script>
 
 <template>
-  <section class="legend panel" :aria-label="t.legendTitle">
-    <h2>{{ t.legendTitle }}</h2>
+  <section class="legend panel" :aria-label="t.legendTitle[parameter]">
+    <h2>{{ t.legendTitle[parameter] }}</h2>
     <ul>
-      <li v-for="c in [...RAIN_CLASSES].reverse()" :key="c.label">
+      <li v-for="c in [...SCALES[parameter].classes].reverse()" :key="c.label">
         <span class="swatch" :style="{ background: c.color }" />{{ c.label }}
       </li>
       <li><span class="swatch hollow" />{{ t.noData }}</li>

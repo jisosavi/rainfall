@@ -1,6 +1,6 @@
-# Nordic rainfall
+# Nordic weather observations
 
-Daily rainfall at weather stations in Finland, Norway and Sweden on a map, based on open data from FMI, MET Norway and SMHI.
+Daily rainfall and snow depth at weather stations in Finland, Norway and Sweden on a map, based on open data from FMI, MET Norway and SMHI. Snow depth is available for Finland so far.
 
 - **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway and SMHI data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
@@ -100,23 +100,28 @@ If the site moves to a new path, change `VITE_BASE`. If it moves to a new domain
 
 ## API
 
+All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_depth` (cm).
+
 | Endpoint | Returns |
 |---|---|
 | `GET /health` | `{"status": "ok", "database": "ok"}`, or 503 if the database is unreachable |
 | `GET /api/latest-date` | `{"date"}`: the latest date with at least one value (404 if there is no data) |
-| `GET /api/stations?date=` | `{"date", "stations": [StationDay]}`. `date` defaults to the latest date. |
+| `GET /api/stations?date=&parameter=` | `{"date", "parameter", "unit", "stations": [StationDay]}`. `date` defaults to the latest date with data for that parameter. |
 | `GET /api/stations/{id}?date=` | `StationDay` |
 | `GET /api/stations/{id}/history?start=&end=` | `{"station_id", "start", "end", "values": [{date, precipitation_mm, has_data}]}`. Defaults to the 30 days ending at the latest date. Maximum 366 days. |
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
 
-`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met` or `smhi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, or SMHI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, or `SE`), `region`, `owner` (organisation running the station, when known), `date`, `precipitation_mm`, `has_data`.
+`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met` or `smhi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, or SMHI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, or `SE`), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
 ## Data conventions
 
-Every stored date D means the same 24 hours in every country: **06 UTC on D to 06 UTC on D+1**.
+Values are stored in `daily_values`, one row per station, measurement type (`parameter`) and date.
+
+- **Rainfall** (`precipitation`, mm): every stored date D means the same 24 hours in every country, **06 UTC on D to 06 UTC on D+1**.
+- **Snow depth** (`snow_depth`, cm): a reading on the morning of D (06 UTC in Finland, Norway and Sweden). It's a snapshot, not a total, so no date shift is ever needed, and readings a few hours apart (e.g. Iceland's 09 UTC) are comparable.
 
 ### FMI (Finland)
 
@@ -124,7 +129,8 @@ These were verified against the live API on 2026-09-25.
 
 - **Source:** WFS stored query `fmi::observations::weather::daily::timevaluepair`, parameter `rrday`, bbox `19,59,32,71`. `region` is FMI's municipality name.
 - **Date:** a value labelled date D covers 06 UTC on D to 06 UTC on D+1. It's stored under D, the same date FMI uses. So yesterday's value exists only after 06 UTC today.
-- **Values:**
+- **Snow depth:** FMI parameter `snow`, fetched in the same request as `rrday`, from the same 169 stations. `-1.0` means no snow cover and is stored as `0` cm with `has_data = true`.
+- **Values (rainfall):**
 
   | FMI value | Meaning | Stored as |
   |---|---|---|

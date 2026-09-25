@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 from sqlalchemy import select
 
-from app.db.models import DailyPrecipitation, Station
+from app.db.models import DailyValue, Station
 from app.ingest import smhi
 from app.ingest.service import run_ingest
 
@@ -53,7 +53,7 @@ def test_latest_months_ref_is_stored_as_is():
 def test_archive_csv_skips_metadata_and_filters_by_start():
     values = smhi.parse_archive_csv(ARCHIVE, date(2026, 5, 25))
     assert min(values) == date(2026, 5, 25) and max(values) == date(2026, 5, 31)
-    assert smhi.parse_archive_csv(ARCHIVE, date(1990, 1, 1))[date(1996, 10, 2)].precipitation_mm == 0.6
+    assert smhi.parse_archive_csv(ARCHIVE, date(1990, 1, 1))[date(1996, 10, 2)].value == 0.6
 
 
 def test_normalize_quality():
@@ -97,7 +97,7 @@ def test_store_in_chunks_with_owner(db):
     owners = dict(db.execute(select(Station.source_station_id, Station.owner).where(Station.source == "smhi")).all())
     assert owners == {STOCKHOLM: "SMHI", VA_SYD: "VA Syd"}
     assert db.scalar(
-        select(DailyPrecipitation.has_data).join(Station).where(
-            Station.source_station_id == STOCKHOLM, DailyPrecipitation.date == date(2026, 9, 24)
+        select(DailyValue.has_data).join(Station).where(
+            Station.source_station_id == STOCKHOLM, DailyValue.date == date(2026, 9, 24)
         )
     )

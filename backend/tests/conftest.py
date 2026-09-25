@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.models import DailyPrecipitation, Station
+from app.db.models import DailyValue, Station
 from app.db.session import get_db
 from app.main import app
 
@@ -39,11 +39,11 @@ def seeded(db):
     db.flush()
     db.add_all(
         [
-            DailyPrecipitation(station_id=helsinki.id, date=date(2025, 12, 31), precipitation_mm=1.2, has_data=True),
-            DailyPrecipitation(station_id=helsinki.id, date=date(2026, 9, 24), precipitation_mm=4.5, has_data=True),
-            DailyPrecipitation(station_id=oulu.id, date=date(2026, 9, 24), precipitation_mm=None, has_data=False),
+            DailyValue(station_id=helsinki.id, date=date(2025, 12, 31), value=1.2, has_data=True),
+            DailyValue(station_id=helsinki.id, date=date(2026, 9, 24), value=4.5, has_data=True),
+            DailyValue(station_id=oulu.id, date=date(2026, 9, 24), value=None, has_data=False),
             # A day with only missing data must not count as an available date.
-            DailyPrecipitation(station_id=oulu.id, date=date(2026, 9, 25), precipitation_mm=None, has_data=False),
+            DailyValue(station_id=oulu.id, date=date(2026, 9, 25), value=None, has_data=False),
         ]
     )
     db.commit()

@@ -6,11 +6,11 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import { ScatterplotLayer } from '@deck.gl/layers'
 import type { PickingInfo } from '@deck.gl/core'
-import type { StationDay } from '../api'
-import { rainClass } from '../lib/rainScale'
-import { formatMm, t } from '../strings'
+import type { Parameter, StationDay } from '../api'
+import { SCALES } from '../lib/scales'
+import { formatValue, t } from '../strings'
 
-const props = defineProps<{ stations: StationDay[]; selectedId: string | null }>()
+const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter }>()
 const emit = defineEmits<{ select: [id: string | null] }>()
 
 const container = ref<HTMLDivElement>()
@@ -35,7 +35,7 @@ const WHITE: [number, number, number, number] = [255, 255, 255, 235]
 
 // Hollow (no data) first, then dry to wet, so the heaviest rainfall is drawn on top.
 function drawOrder(stations: StationDay[]): StationDay[] {
-  return [...stations].sort((a, b) => (a.precipitation_mm ?? -1) - (b.precipitation_mm ?? -1))
+  return [...stations].sort((a, b) => (a.value ?? -1) - (b.value ?? -1))
 }
 
 function buildLayers() {
@@ -61,6 +61,7 @@ function selectionRing(station: StationDay) {
 }
 
 function stationsLayer() {
+  const scale = SCALES[props.parameter]
   return new ScatterplotLayer<StationDay>({
     id: 'stations',
     data: drawOrder(props.stations),
@@ -75,8 +76,8 @@ function stationsLayer() {
     filled: true,
     lineWidthUnits: 'pixels',
     getLineWidth: (d) => (d.has_data ? 1.5 : 2),
-    getFillColor: (d) =>
-      d.has_data && d.precipitation_mm !== null ? [...rainClass(d.precipitation_mm).rgb, 255] : [0, 0, 0, 0],
+    getFillColor: (d) => (d.has_data && d.value !== null ? [...scale.classOf(d.value).rgb, 255] : [0, 0, 0, 0]),
+    updateTriggers: { getFillColor: props.parameter },
     // Filled circles get a thin ring in the map colour so overlapping stations stay separate.
     getLineColor: (d) => (d.has_data ? MAP_SURFACE : WHITE),
     pickable: true,
@@ -87,7 +88,7 @@ function stationsLayer() {
 
 function tooltip({ object }: PickingInfo<StationDay>) {
   if (!object) return null
-  const value = object.has_data ? formatMm(object.precipitation_mm) : formatMm(null)
+  const value = formatValue(props.parameter, object.has_data ? object.value : null)
   return {
     html: `<strong>${escapeHtml(object.name)}</strong><br>${value}`,
     className: 'map-tooltip',
@@ -126,7 +127,7 @@ onMounted(() => {
 })
 
 watch(
-  () => [props.stations, props.selectedId],
+  () => [props.stations, props.selectedId, props.parameter],
   () => overlay?.setProps({ layers: buildLayers() }),
 )
 

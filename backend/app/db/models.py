@@ -41,24 +41,30 @@ class Station(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    precipitation_rows: Mapped[list["DailyPrecipitation"]] = relationship(
+    values: Mapped[list["DailyValue"]] = relationship(
         back_populates="station", passive_deletes=True
     )
 
 
-class DailyPrecipitation(Base):
-    __tablename__ = "daily_precipitation"
+# Measurement types stored in daily_values.
+PRECIPITATION = "precipitation"  # 24 h total, mm, 06 UTC on D to 06 UTC on D+1
+SNOW_DEPTH = "snow_depth"  # reading at 06 UTC on D, cm
+PARAMETERS = (PRECIPITATION, SNOW_DEPTH)
+UNITS = {PRECIPITATION: "mm", SNOW_DEPTH: "cm"}
+
+
+class DailyValue(Base):
+    """One station, one date, one measurement type."""
+
+    __tablename__ = "daily_values"
     __table_args__ = (
         # Also serves as the station_id index: station_id is the leading column.
-        UniqueConstraint("station_id", "date", name="uq_daily_precipitation_station_date"),
-        Index("ix_daily_precipitation_date", "date"),
+        UniqueConstraint("station_id", "parameter", "date", name="uq_daily_values_station_parameter_date"),
+        Index("ix_daily_values_parameter_date", "parameter", "date"),
+        CheckConstraint("value IS NULL OR value >= 0", name="ck_daily_values_non_negative"),
         CheckConstraint(
-            "precipitation_mm IS NULL OR precipitation_mm >= 0",
-            name="ck_daily_precipitation_non_negative",
-        ),
-        CheckConstraint(
-            "(has_data AND precipitation_mm IS NOT NULL) OR (NOT has_data AND precipitation_mm IS NULL)",
-            name="ck_daily_precipitation_has_data_matches_value",
+            "(has_data AND value IS NOT NULL) OR (NOT has_data AND value IS NULL)",
+            name="ck_daily_values_has_data_matches_value",
         ),
     )
 
@@ -66,13 +72,15 @@ class DailyPrecipitation(Base):
     station_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("stations.id", ondelete="CASCADE"), nullable=False
     )
+    parameter: Mapped[str] = mapped_column(String(32), nullable=False, default=PRECIPITATION, server_default=PRECIPITATION)
     date: Mapped[date] = mapped_column(Date, nullable=False)
-    precipitation_mm: Mapped[float | None] = mapped_column(Double, nullable=True)
+    # In the parameter's unit (see UNITS).
+    value: Mapped[float | None] = mapped_column(Double, nullable=True)
     has_data: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    # Original source value/flag, e.g. FMI's "-1" for "no precipitation", kept for auditing.
+    # Original source value/flag, e.g. FMI's "-1" for "no precipitation" or "no snow cover".
     raw_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    station: Mapped[Station] = relationship(back_populates="precipitation_rows")
+    station: Mapped[Station] = relationship(back_populates="values")

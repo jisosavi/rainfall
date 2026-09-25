@@ -8,6 +8,9 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Next
 
+- [ ] Snow depth for Norway (Frost `surface_snow_thickness`, daily at 06 UTC, about 427 series) and Sweden (SMHI parameter 8, "Snödjup", 06 UTC, 405 active stations). No date shift needed: both are morning readings.
+- [ ] Cumulative rainfall ranking per station: this year, this month, this week
+
 - [ ] Year selector: browse by year, using `/api/years` and `/api/dates?year=`
 - [ ] Finnish translation: all text is in `frontend/src/strings.ts`. Add a language switch.
 - [ ] Longer history in the station panel, e.g. a month or year view (the API allows up to 366 days)

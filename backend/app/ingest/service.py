@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from app.db.models import DailyPrecipitation, Station
+from app.db.models import PRECIPITATION, DailyValue, Station
 from app.ingest.common import StationSeries, date_chunks
 
 logger = logging.getLogger(__name__)
@@ -67,8 +67,9 @@ def upsert_precipitation(session: Session, series: list[StationSeries], station_
         {
             "id": uuid4(),
             "station_id": station_ids[(s.source, s.source_station_id)],
+            "parameter": s.parameter,
             "date": day,
-            "precipitation_mm": value.precipitation_mm,
+            "value": value.value,
             "has_data": value.has_data,
             "raw_status": value.raw_status,
         }
@@ -76,11 +77,11 @@ def upsert_precipitation(session: Session, series: list[StationSeries], station_
         for day, value in s.values
     ]
     for i in range(0, len(rows), BATCH_SIZE):
-        stmt = _insert(session, DailyPrecipitation).values(rows[i : i + BATCH_SIZE])
+        stmt = _insert(session, DailyValue).values(rows[i : i + BATCH_SIZE])
         stmt = stmt.on_conflict_do_update(
-            index_elements=[DailyPrecipitation.station_id, DailyPrecipitation.date],
+            index_elements=[DailyValue.station_id, DailyValue.parameter, DailyValue.date],
             set_={
-                "precipitation_mm": stmt.excluded.precipitation_mm,
+                "value": stmt.excluded.value,
                 "has_data": stmt.excluded.has_data,
                 "raw_status": stmt.excluded.raw_status,
                 "fetched_at": func.now(),
@@ -98,17 +99,28 @@ def store_series(session: Session, series: list[StationSeries]) -> int:
 
 
 def default_range(
-    session: Session, source: str, start_date: date, refetch_days: int, today: date | None = None
+    session: Session,
+    source: str,
+    start_date: date,
+    refetch_days: int,
+    today: date | None = None,
+    parameters: tuple[str, ...] = (PRECIPITATION,),
 ) -> tuple[date, date]:
-    """From `refetch_days` before this source's newest stored row (or `start_date` if it has
-    none) to yesterday (UTC)."""
+    """From `refetch_days` before this source's newest stored row to yesterday (UTC). If any of
+    the source's parameters has no data yet (e.g. a newly added one), start from `start_date`."""
     today = today or datetime.now(timezone.utc).date()
     end = today - timedelta(days=1)
-    latest = session.execute(
-        select(func.max(DailyPrecipitation.date)).join(Station).where(Station.source == source)
-    ).scalar()
-    start = start_date if latest is None else max(start_date, latest - timedelta(days=refetch_days))
-    return start, end
+    latest_per_parameter = [
+        session.execute(
+            select(func.max(DailyValue.date))
+            .join(Station)
+            .where(Station.source == source, DailyValue.parameter == parameter)
+        ).scalar()
+        for parameter in parameters
+    ]
+    if any(latest is None for latest in latest_per_parameter):
+        return start_date, end
+    return max(start_date, min(latest_per_parameter) - timedelta(days=refetch_days)), end
 
 
 def run_ingest(session: Session, fetch_chunk: FetchChunk, start: date, end: date, label: str = "") -> int:

@@ -1,27 +1,27 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { StationDay } from '../api'
-import { rainClass } from '../lib/rainScale'
-import { formatMm, t } from '../strings'
+import type { Parameter, StationDay } from '../api'
+import { SCALES } from '../lib/scales'
+import { formatValue, t } from '../strings'
 
-const props = defineProps<{ stations: StationDay[]; selectedId: string | null }>()
+const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter }>()
 const emit = defineEmits<{ select: [id: string] }>()
 
 // Table view of the map: wettest first, stations without data last.
 const sorted = computed(() =>
   [...props.stations].sort(
-    (a, b) => (b.precipitation_mm ?? -1) - (a.precipitation_mm ?? -1) || a.name.localeCompare(b.name, 'fi'),
+    (a, b) => (b.value ?? -1) - (a.value ?? -1) || a.name.localeCompare(b.name, 'fi'),
   ),
 )
 </script>
 
 <template>
-  <section class="station-list panel" :aria-label="t.listHeading">
-    <h2>{{ t.listHeading }}</h2>
+  <section class="station-list panel" :aria-label="t.listHeading[parameter]">
+    <h2>{{ t.listHeading[parameter] }}</h2>
     <div class="scroll">
       <table>
         <thead>
-          <tr><th scope="col">{{ t.station }}</th><th scope="col" class="num">{{ t.rainfall }}</th></tr>
+          <tr><th scope="col">{{ t.station }}</th><th scope="col" class="num">{{ t.parameterLabel[parameter] }}</th></tr>
         </thead>
         <tbody>
           <tr
@@ -36,10 +36,10 @@ const sorted = computed(() =>
               <span
                 class="swatch"
                 :class="{ hollow: !s.has_data }"
-                :style="s.has_data && s.precipitation_mm !== null ? { background: rainClass(s.precipitation_mm).color } : {}"
+                :style="s.has_data && s.value !== null ? { background: SCALES[parameter].classOf(s.value).color } : {}"
               /><span class="name">{{ s.name }}</span><span class="tag">{{ t.countryTag[s.source] }}</span>
             </td>
-            <td class="num">{{ s.has_data ? formatMm(s.precipitation_mm) : t.noData }}</td>
+            <td class="num">{{ formatValue(parameter, s.has_data ? s.value : null) }}</td>
           </tr>
         </tbody>
       </table>
