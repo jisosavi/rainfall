@@ -71,7 +71,7 @@ One project with three services:
   - Cron Schedule `15 7,13 * * *` (UTC)
   - Restart Policy Never
   - Variables: `DATABASE_URL`, `FROST_CLIENT_ID`
-- **rainfall-ingest-archive (cron, monthly):** replaces SMHI's preliminary values with its corrected archive.
+- **rainfall-ingest-archive-sweden (cron, monthly):** replaces SMHI's preliminary values with its corrected archive.
   - Same settings as rainfall-ingest, except:
   - Start Command `python -m app.ingest --source smhi --archive-refresh`
   - Cron Schedule `0 8 3 * *` (08:00 UTC on the 3rd of each month)
