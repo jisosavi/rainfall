@@ -4,8 +4,8 @@ Without dates, each source backfills from INGEST_START_DATE if it has no data ye
 otherwise re-fetches its last INGEST_REFETCH_DAYS days (sources revise recent values).
 MET Norway needs FROST_CLIENT_ID; with --source all it is skipped when that is unset.
 
-`--source smhi --archive-refresh` re-loads the last SMHI_ARCHIVE_REFRESH_DAYS days from
-SMHI's corrected archive, replacing preliminary values (run monthly).
+`--source smhi --archive-refresh` re-loads the last SMHI_ARCHIVE_REFRESH_DAYS days of rainfall
+and snow depth from SMHI's corrected archive, replacing preliminary values (run monthly).
 """
 
 import argparse
@@ -25,7 +25,7 @@ logger = logging.getLogger("app.ingest")
 
 ALL_SOURCES = ["fmi", "met", "smhi"]
 # Measurement types each source provides.
-SOURCE_PARAMETERS = {"fmi": (PRECIPITATION, SNOW_DEPTH), "met": (PRECIPITATION,), "smhi": (PRECIPITATION,)}
+SOURCE_PARAMETERS = {source: (PRECIPITATION, SNOW_DEPTH) for source in ALL_SOURCES}
 
 
 def main() -> int:
@@ -83,17 +83,25 @@ def _ingest(session, source: str, start: date, end: date, settings, archive_refr
     if source == "fmi":
         with httpx.Client(timeout=120, headers={"User-Agent": met.USER_AGENT}) as client:
             return run_ingest(session, lambda a, b: fmi.fetch_daily(client, a, b), start, end, source)
+    total = 0
     if source == "met":
         with met.make_client(settings.frost_client_id) as client:
-            stations = met.fetch_stations(client, start, end)
-            logger.info("met: %d stations", len(stations))
-            return run_ingest(session, lambda a, b: met.fetch_daily(client, a, b, stations), start, end, source)
+            for parameter in SOURCE_PARAMETERS[source]:
+                stations = met.fetch_stations(client, start, end, parameter)
+                logger.info("met %s: %d stations", parameter, len(stations))
+                fetch = lambda a, b, stations=stations, parameter=parameter: met.fetch_daily(client, a, b, stations, parameter)
+                total += run_ingest(session, fetch, start, end, f"met {parameter}")
+        return total
     # SMHI serves whole periods per station, so fetch once and store in date chunks.
     with smhi.make_client() as client:
-        stations = smhi.fetch_stations(client, start, end)
-        logger.info("smhi: %d stations", len(stations))
-        series = smhi.fetch_daily(client, start, end, stations, use_archive=True if archive_refresh else None)
-    return run_ingest(session, lambda a, b: smhi.slice_series(series, a, b), start, end, source)
+        for parameter in SOURCE_PARAMETERS[source]:
+            stations = smhi.fetch_stations(client, start, end, parameter)
+            logger.info("smhi %s: %d stations", parameter, len(stations))
+            series = smhi.fetch_daily(
+                client, start, end, stations, use_archive=True if archive_refresh else None, parameter=parameter
+            )
+            total += run_ingest(session, lambda a, b, series=series: smhi.slice_series(series, a, b), start, end, f"smhi {parameter}")
+    return total
 
 
 if __name__ == "__main__":

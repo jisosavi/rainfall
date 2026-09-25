@@ -1,0 +1,21 @@
+﻿Stationsnamn;Stationsnummer;Stationsnät;Mäthöjd (meter över marken)
+Kiruna;180960;SMHIs stationsnät;0.0
+
+Parameternamn;Beskrivning;Enhet
+Snödjup;momentanvärde, 1 gång/dygn, kl 06;meter
+
+Tidsperiod (fr.o.m);Tidsperiod (t.o.m);Höjd (meter över havet);Latitud (decimalgrader);Longitud (decimalgrader)
+1898-11-01 00:00:00;1964-12-31 23:59:59;505.0;67.8500;20.2333
+1996-10-01 00:00:00;2010-05-31 23:59:59;500.0;67.8500;20.2451
+2021-11-01 00:00:00;2026-09-01 09:20:19;518.801;67.8513;20.2497
+
+Datum;Tid (UTC);Snödjup;Kvalitet;;Tidsutsnitt:
+1947-01-01;06:00:00;0.25;G;;Kvalitetskontrollerade historiska data (utom de senaste 3 mån)
+1947-01-02;06:00:00;0.24;G;;Tidsperiod (fr.o.m.) = 1898-11-01 00:00:00 (UTC)
+2026-02-08;06:00:00;0.58;G
+2026-02-09;06:00:00;0.57;G
+2026-02-10;06:00:00;0.58;G
+2026-02-11;06:00:00;0.57;G
+2026-02-12;06:00:00;0.57;G
+2026-02-13;06:00:00;0.57;G
+2026-02-14;06:00:00;0.57;G

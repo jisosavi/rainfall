@@ -101,3 +101,64 @@ def test_store_in_chunks_with_owner(db):
             Station.source_station_id == STOCKHOLM, DailyValue.date == date(2026, 9, 24)
         )
     )
+
+
+PARAM8 = json.loads((FIXTURES / "smhi_parameter8.json").read_text())
+SNOW_LATEST = json.loads((FIXTURES / "smhi_snow_latest_months_180960.json").read_text())
+SNOW_ARCHIVE = (FIXTURES / "smhi_snow_archive_180960.csv").read_text(encoding="utf-8")
+
+
+def test_snow_archive_csv_metres_to_cm():
+    # Real Kiruna archive rows: "2026-02-10;06:00:00;0.58;G" is 58 cm.
+    values = smhi.parse_archive_csv(SNOW_ARCHIVE, date(2026, 2, 8), scale=100)
+    assert (values[date(2026, 2, 10)].value, values[date(2026, 2, 10)].raw_status) == (58.0, "0.58|G")
+    assert min(values) == date(2026, 2, 8) and max(values) == date(2026, 2, 14)
+
+
+def test_snow_latest_months_uses_timestamp_date():
+    values = smhi.parse_latest_months(SNOW_LATEST, scale=100)
+    # Timestamps are 06:00 UTC readings; their UTC date is the reading's date.
+    dates = sorted(values)
+    assert all(v.value == 0.0 and v.has_data for v in values.values())  # late-summer: no snow
+    assert dates[-1] == date(2026, 9, 24)
+    assert (dates[-1] - dates[-2]).days == 3  # a real 3-day gap: reported days only
+
+
+def test_snow_fetch_only_reported_days():
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/parameter/8.json"):
+            return httpx.Response(200, json=PARAM8)
+        if path.endswith("/parameter/8/station/180960/period/latest-months/data.json"):
+            return httpx.Response(200, json=SNOW_LATEST)
+        if path.endswith("/parameter/8/station/180960/period/corrected-archive/data.csv"):
+            return httpx.Response(200, text=SNOW_ARCHIVE)
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        series = smhi.fetch_daily(
+            client, date(2026, 2, 1), date(2026, 9, 24), today=date(2026, 9, 25), parameter="snow_depth"
+        )
+    assert [s.source_station_id for s in series] == ["180960"]  # Aapua closed long ago
+    kiruna = series[0]
+    assert kiruna.parameter == "snow_depth"
+    values = dict(kiruna.values)
+    assert values[date(2026, 2, 10)].value == 58.0  # from the archive
+    assert date(2026, 3, 1) not in values  # not in the trimmed fixtures, and not filled in
+    assert all(v.has_data for v in values.values())
+
+
+def test_implausible_values_become_missing(db):
+    # Real SMHI value for Söråker (Sundsvalls kommun), 2026-05-17: "17280.0" with quality Y.
+    from app.ingest.common import StationSeries
+    from app.ingest.service import store_series
+
+    series = StationSeries(
+        source="smhi", source_station_id="22228110", name="Söråker", region=None, lat=62.49, lon=17.51, country="SE",
+        values=[(date(2026, 5, 17), smhi.normalize("17280.0", "Y")), (date(2026, 5, 18), smhi.normalize("140.0", "G"))],
+    )
+    store_series(db, [series])
+    rows = dict(db.execute(select(DailyValue.date, DailyValue)).tuples().all())
+    assert (rows[date(2026, 5, 17)].has_data, rows[date(2026, 5, 17)].value) == (False, None)
+    assert rows[date(2026, 5, 17)].raw_status == "17280.0|Y|implausible"
+    assert (rows[date(2026, 5, 18)].has_data, rows[date(2026, 5, 18)].value) == (True, 140.0)  # heavy but real

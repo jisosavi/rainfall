@@ -106,3 +106,39 @@ def test_fmi_and_met_stations_coexist(db):
     assert db.scalar(select(DailyValue.value).join(Station).where(
         Station.source_station_id == "SN18700", DailyValue.date == date(2026, 9, 15)
     )) == 14.9
+
+
+SNOW = json.loads((Path(__file__).parent / "fixtures" / "frost_snow.json").read_text())
+
+
+def test_snow_depth_no_date_shift_and_only_reported_days():
+    # Real Frost responses, labels 2026-02-10..13: Oslo Blindern and a snow-only road station.
+    client, requests = mock_client(copy.deepcopy(SNOW))
+    with client:
+        series = met.fetch_daily(client, date(2026, 2, 10), date(2026, 2, 16), parameter="snow_depth")
+    by_id = {s.source_station_id: s for s in series}
+    assert set(by_id) == {"SN18700", "SN89233"}
+    oslo = by_id["SN18700"]
+    assert oslo.parameter == "snow_depth"
+    # A reading at 06 UTC on the label date: stored under the same date, no shift.
+    assert [(d, v.value) for d, v in oslo.values] == [
+        (date(2026, 2, 10), 10.0), (date(2026, 2, 11), 10.0), (date(2026, 2, 12), 10.0), (date(2026, 2, 13), 11.0)
+    ]
+    # Days 14-16 were not reported: no missing rows for snow.
+    assert max(d for d, _ in oslo.values) == date(2026, 2, 13)
+    obs_request = next(r for r in requests if r.url.path == "/observations/v0.jsonld")
+    assert obs_request.url.params["referencetime"] == "2026-02-10/2026-02-17"
+    assert obs_request.url.params["elements"] == "surface_snow_thickness"
+    assert obs_request.url.params["timeresolutions"] == "P1D"
+
+
+def test_tidy_owner():
+    # Real Frost station holders.
+    assert met.tidy_owner(["STATENS VEGVESEN"]) == "Statens vegvesen"
+    assert met.tidy_owner(["MET.NO"]) == "MET Norway"
+    assert met.tidy_owner(["AVINOR", "MET.NO"]) == "Avinor, MET Norway"
+    assert met.tidy_owner(["BANE NOR"]) == "Bane NOR"
+    assert met.tidy_owner(["NVE SEKSJON FOR FJELLSKRED"]) == "NVE seksjon for fjellskred"
+    assert met.tidy_owner(["TRONDHEIM KOMMUNE"]) == "Trondheim kommune"
+    assert met.tidy_owner(["ukjent - sjekk tabellen person i stedet for organisation", "Private owner"]) == "Private owner"
+    assert met.tidy_owner([]) is None

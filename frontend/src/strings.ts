@@ -42,7 +42,7 @@ export const t = {
   aboutDataHeading: 'Data',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
-  aboutStationsNote: 'Stations: number on the date and measurement shown on the map. Snow depth is available for Finland so far.',
+  aboutStationsNote: 'Stations: number on the date and measurement shown on the map.',
   aboutProcessingNote:
     'The data has been processed: values are quality-filtered, aligned to the same daily period (06:00–06:00 UTC), and days without a value are marked as missing.',
   aboutUpdatesHeading: 'Updates',

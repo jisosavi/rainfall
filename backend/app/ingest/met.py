@@ -10,6 +10,10 @@ Facts verified against the live API (2026-09):
 - Frost already converts "no precipitation" (-1) to 0.0. It has no missing-value marker:
   a day without an observation is simply absent, so missing rows are filled in here.
 - Frost answers 404 when a query has no data.
+- Snow depth: surface_snow_thickness, daily (P1D) at PT6H, in cm. It is a reading, not a
+  total: label D is the reading at 06 UTC on D (equal to the hourly value then), stored
+  under D with no shift. 0 means no snow. Many stations report it irregularly or only in
+  winter, so only reported days are stored (no missing rows).
 - Needs a client ID (HTTP basic auth, empty password). Open data: NLOD 2.0 / CC BY 4.0.
 """
 
@@ -25,8 +29,23 @@ from app.ingest.common import Normalized, StationSeries
 logger = logging.getLogger(__name__)
 
 FROST_URL = "https://frost.met.no"
-ELEMENT = "sum(precipitation_amount P1D)"
 TIME_OFFSET = "PT6H"
+
+
+@dataclass(frozen=True)
+class _Element:
+    id: str
+    time_resolution: str | None
+    shift_days: int  # stored date = Frost label - shift_days
+    fill_missing: bool  # add has_data=false rows for unreported days
+
+
+ELEMENTS = {
+    # Totals are labelled by the day their window ends: label D covers 06 UTC D-1 to 06 UTC D.
+    "precipitation": _Element("sum(precipitation_amount P1D)", None, shift_days=1, fill_missing=True),
+    # Readings at 06 UTC on the label date.
+    "snow_depth": _Element("surface_snow_thickness", "P1D", shift_days=0, fill_missing=False),
+}
 COUNTRIES = {"NO", "SJ"}
 SOURCE = "met"
 STATIONS_PER_REQUEST = 100
@@ -57,8 +76,40 @@ def _tidy(text: str | None) -> str | None:
     return text.strip().title() if text and text.strip() else None
 
 
-def _label_to_stored(label: date) -> date:
-    return label - timedelta(days=1)
+# Frost station holders are upper case ("STATENS VEGVESEN", "MET.NO"). Keep acronyms, write
+# the rest as Norwegian does ("Statens vegvesen", "Trondheim kommune").
+_OWNER_NAMES = {"MET.NO": "MET Norway"}
+_ACRONYMS = {"NVE", "NIBIO", "NTNU", "UNIS", "NOR", "AS", "A/S", "E-CO"}
+
+
+def tidy_owner(holders: list[str] | None) -> str | None:
+    names = []
+    for holder in holders or []:
+        holder = holder.strip()
+        if not holder:
+            continue
+        if holder.lower().startswith("ukjent"):  # Frost's placeholder for private owners
+            names.append("Private owner")
+            continue
+        if holder in _OWNER_NAMES:
+            names.append(_OWNER_NAMES[holder])
+            continue
+        words = holder.split()
+        names.append(
+            " ".join(
+                w if w in _ACRONYMS else (w.capitalize() if i == 0 else w.lower()) for i, w in enumerate(words)
+            )
+        )
+    # Frost also splits some holders into their own list entries, e.g. "…, Private owner".
+    unique = list(dict.fromkeys(n for part in names for n in [p.strip() for p in part.split(",")] if n))
+    return ", ".join(unique) or None
+
+
+def _params(element: _Element, **extra) -> dict:
+    params = {"elements": element.id, "timeoffsets": TIME_OFFSET, **extra}
+    if element.time_resolution:
+        params["timeresolutions"] = element.time_resolution
+    return params
 
 
 def _get(client: httpx.Client, path: str, params: dict, retries: int = 3) -> list[dict]:
@@ -87,16 +138,14 @@ def parse_quality(observation: dict) -> Normalized:
     return Normalized(float(value), True, raw)
 
 
-def fetch_stations(client: httpx.Client, start: date, end: date) -> list[_Station]:
-    """Stations with a PT6H daily precipitation series overlapping start..end (stored dates)."""
+def fetch_stations(client: httpx.Client, start: date, end: date, parameter: str = "precipitation") -> list[_Station]:
+    """Stations with a PT6H daily series of the parameter overlapping start..end (stored dates)."""
+    element = ELEMENTS[parameter]
+    shift = timedelta(days=element.shift_days)
     series = _get(
         client,
         "/observations/availableTimeSeries/v0.jsonld",
-        {
-            "elements": ELEMENT,
-            "timeoffsets": TIME_OFFSET,
-            "referencetime": f"{start + timedelta(days=1)}/{end + timedelta(days=2)}",
-        },
+        _params(element, referencetime=f"{start + shift}/{end + shift + timedelta(days=1)}"),
     )
     validity: dict[str, tuple[date, date | None]] = {}
     for s in series:
@@ -125,26 +174,29 @@ def fetch_stations(client: httpx.Client, start: date, end: date) -> list[_Statio
                     lat=coords[1],
                     lon=coords[0],
                     country=meta["countryCode"],
-                    owner=", ".join(meta.get("stationHolders") or []) or None,
-                    valid_from=_label_to_stored(valid_from),
-                    valid_to=_label_to_stored(valid_to) if valid_to else None,
+                    owner=tidy_owner(meta.get("stationHolders")),
+                    valid_from=valid_from - shift,
+                    valid_to=valid_to - shift if valid_to else None,
                 )
             )
     return stations
 
 
-def fetch_values(client: httpx.Client, station_ids: list[str], start: date, end: date) -> dict[str, dict[date, Normalized]]:
+def fetch_values(
+    client: httpx.Client, station_ids: list[str], start: date, end: date, parameter: str = "precipitation"
+) -> dict[str, dict[date, Normalized]]:
     """Values for stored dates start..end, keyed by station id and stored date."""
-    first_label, last_label = start + timedelta(days=1), end + timedelta(days=1)
+    element = ELEMENTS[parameter]
+    shift = timedelta(days=element.shift_days)
+    first_label, last_label = start + shift, end + shift
     items = _get(
         client,
         "/observations/v0.jsonld",
-        {
-            "sources": ",".join(station_ids),
-            "elements": ELEMENT,
-            "timeoffsets": TIME_OFFSET,
-            "referencetime": f"{first_label}/{last_label + timedelta(days=1)}",
-        },
+        _params(
+            element,
+            sources=",".join(station_ids),
+            referencetime=f"{first_label}/{last_label + timedelta(days=1)}",
+        ),
     )
     values: dict[str, dict[date, Normalized]] = {}
     for item in items:
@@ -155,18 +207,25 @@ def fetch_values(client: httpx.Client, station_ids: list[str], start: date, end:
         # Prefer time series 0 when a station has several.
         observations = sorted(item.get("observations", []), key=lambda o: o.get("timeSeriesId", 0))
         if observations:
-            values.setdefault(station_id, {}).setdefault(_label_to_stored(label), parse_quality(observations[0]))
+            values.setdefault(station_id, {}).setdefault(label - shift, parse_quality(observations[0]))
     return values
 
 
-def fetch_daily(client: httpx.Client, start: date, end: date, stations: list[_Station] | None = None) -> list[StationSeries]:
-    stations = stations if stations is not None else fetch_stations(client, start, end)
+def fetch_daily(
+    client: httpx.Client,
+    start: date,
+    end: date,
+    stations: list[_Station] | None = None,
+    parameter: str = "precipitation",
+) -> list[StationSeries]:
+    element = ELEMENTS[parameter]
+    stations = stations if stations is not None else fetch_stations(client, start, end, parameter)
     active = [s for s in stations if s.valid_from <= end and (s.valid_to is None or s.valid_to >= start)]
 
     result: list[StationSeries] = []
     for i in range(0, len(active), STATIONS_PER_REQUEST):
         batch = active[i : i + STATIONS_PER_REQUEST]
-        values = fetch_values(client, [s.id for s in batch], start, end)
+        values = fetch_values(client, [s.id for s in batch], start, end, parameter)
         for s in batch:
             series = StationSeries(
                 source=SOURCE,
@@ -177,14 +236,18 @@ def fetch_daily(client: httpx.Client, start: date, end: date, stations: list[_St
                 lon=s.lon,
                 country=s.country,
                 owner=s.owner,
+                parameter=parameter,
             )
             station_values = values.get(s.id, {})
-            day = max(start, s.valid_from)
-            last = min(end, s.valid_to) if s.valid_to else end
-            while day <= last:
-                # A day without an observation becomes an explicit missing row (hollow circle).
-                series.values.append((day, station_values.get(day, Normalized(None, False, "missing"))))
-                day += timedelta(days=1)
+            if element.fill_missing:
+                day = max(start, s.valid_from)
+                last = min(end, s.valid_to) if s.valid_to else end
+                while day <= last:
+                    # A day without an observation becomes an explicit missing row (hollow circle).
+                    series.values.append((day, station_values.get(day, Normalized(None, False, "missing"))))
+                    day += timedelta(days=1)
+            else:
+                series.values = sorted(station_values.items())
             if series.values:
                 result.append(series)
     return result

@@ -42,9 +42,13 @@ const sections = computed<Section[]>(() => {
   // The map's own value is authoritative for the shown measurement.
   const shown = all.find((s) => s.parameter === props.parameter)!
   shown.value = props.station.has_data ? props.station.value : null
-  const hasSnow = (snow.data.value?.values.length ?? 0) > 0 || props.parameter === 'snow_depth'
+  // Show a measurement only if the station reports it (some are snow-only or rain-only).
+  const has: Record<Parameter, boolean> = {
+    precipitation: (rain.data.value?.values.length ?? 0) > 0 || props.parameter === 'precipitation',
+    snow_depth: (snow.data.value?.values.length ?? 0) > 0 || props.parameter === 'snow_depth',
+  }
   return all
-    .filter((s) => s.parameter === 'precipitation' || hasSnow)
+    .filter((s) => has[s.parameter])
     .sort((a, b) => Number(b.parameter === props.parameter) - Number(a.parameter === props.parameter))
 })
 

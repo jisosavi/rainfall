@@ -1,0 +1,37 @@
+{
+ "key": "8",
+ "title": "Snödjup: Välj station (sedan tidsutsnitt)",
+ "summary": "momentanvärde, 1 gång/dygn, kl 06",
+ "unit": "meter",
+ "valueType": "SAMPLING",
+ "station": [
+  {
+   "key": "180960",
+   "name": "Kiruna",
+   "owner": "SMHI",
+   "ownerCategory": "CLIMATE",
+   "measuringStations": "CORE",
+   "id": 180960,
+   "height": 518.801,
+   "latitude": 67.8513,
+   "longitude": 20.2497,
+   "active": true,
+   "from": -2245795200000,
+   "to": 1790334000000
+  },
+  {
+   "key": "173010",
+   "name": "Aapua",
+   "owner": "SMHI",
+   "ownerCategory": "CLIMATE",
+   "measuringStations": "CORE",
+   "id": 173010,
+   "height": 210.0,
+   "latitude": 66.8656,
+   "longitude": 23.4951,
+   "active": false,
+   "from": -788918400000,
+   "to": -405129601000
+  }
+ ]
+}

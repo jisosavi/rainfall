@@ -11,6 +11,10 @@ Facts verified against the live API (2026-09):
 - Quality: G = checked and approved, Y = suspicious or not yet checked (newest data).
   Both are kept; the flag goes into raw_status.
 - Missing days are simply absent, so they are filled in as missing rows.
+- Snow depth: parameter 8 ("Snödjup, momentanvärde, 1 gång/dygn, kl 06"), a reading at
+  06 UTC, **in metres** (converted to cm). Values carry a timestamp instead of ref, and the
+  archive CSV has different columns (Datum; Tid; Snödjup; Kvalitet). Many stations report
+  irregularly, so only reported days are stored (no missing rows).
 - No registration. Licence CC BY 4.0: credit SMHI and say the data was processed.
 """
 
@@ -28,13 +32,26 @@ from app.ingest.common import Normalized, StationSeries
 
 logger = logging.getLogger(__name__)
 
-API_URL = "https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/5"
+BASE_URL = "https://opendata-download-metobs.smhi.se/api/version/1.0/parameter"
 SOURCE = "smhi"
 USER_AGENT = "rainfall github.com/jisosavi/rainfall"
 # latest-months reaches back ~4 months; older dates need the corrected archive.
 LATEST_MONTHS_DAYS = 110
 PARALLEL_REQUESTS = 4
 VALID_QUALITIES = {"G", "Y"}
+
+
+@dataclass(frozen=True)
+class _Parameter:
+    number: int
+    scale: float  # multiply SMHI's value to get our unit
+    fill_missing: bool  # add has_data=false rows for unreported days
+
+
+PARAMETERS = {
+    "precipitation": _Parameter(5, scale=1.0, fill_missing=True),  # mm
+    "snow_depth": _Parameter(8, scale=100.0, fill_missing=False),  # metres -> cm
+}
 
 
 @dataclass
@@ -73,15 +90,15 @@ def _get(client: httpx.Client, url: str, retries: int = 3) -> httpx.Response | N
     return None
 
 
-def normalize(value: str | None, quality: str | None) -> Normalized:
+def normalize(value: str | None, quality: str | None, scale: float = 1.0) -> Normalized:
     raw = f"{value}|{quality}"
     try:
-        mm = float(value) if value is not None else None
+        number = float(value) if value is not None else None
     except ValueError:
-        mm = None
-    if mm is None or mm < 0 or quality not in VALID_QUALITIES:
+        number = None
+    if number is None or number < 0 or quality not in VALID_QUALITIES:
         return Normalized(None, False, raw)
-    return Normalized(mm, True, raw)
+    return Normalized(round(number * scale, 2), True, raw)
 
 
 def parse_stations(payload: dict, start: date, end: date) -> list[_Station]:
@@ -105,46 +122,58 @@ def parse_stations(payload: dict, start: date, end: date) -> list[_Station]:
     return stations
 
 
-def parse_latest_months(payload: dict) -> dict[date, Normalized]:
-    return {date.fromisoformat(v["ref"]): normalize(v.get("value"), v.get("quality")) for v in payload.get("value") or []}
-
-
-def parse_archive_csv(text: str, start: date) -> dict[date, Normalized]:
-    """The CSV has metadata blocks first; data starts after the 'Från Datum Tid (UTC)' header.
-    Columns: from; to; representative day; value; quality; (free-text notes)."""
-    lines = text.lstrip("﻿").splitlines()
-    header = next((i for i, line in enumerate(lines) if line.startswith("Från Datum Tid")), None)
-    if header is None:
-        return {}
-    values: dict[date, Normalized] = {}
-    for row in csv.reader(io.StringIO("\n".join(lines[header + 1 :])), delimiter=";"):
-        if len(row) < 5 or not row[2]:
-            continue
-        try:
-            day = date.fromisoformat(row[2].strip())
-        except ValueError:
-            continue
-        if day >= start:
-            values[day] = normalize(row[3].strip() or None, row[4].strip() or None)
+def parse_latest_months(payload: dict, scale: float = 1.0) -> dict[date, Normalized]:
+    """Interval values (rainfall) carry `ref`, the representative day; readings (snow depth)
+    carry `date`, a timestamp in ms, whose UTC date is the reading's date."""
+    values = {}
+    for v in payload.get("value") or []:
+        day = date.fromisoformat(v["ref"]) if v.get("ref") else _ms_to_date(v["date"])
+        values[day] = normalize(v.get("value"), v.get("quality"), scale)
     return values
 
 
-def fetch_stations(client: httpx.Client, start: date, end: date) -> list[_Station]:
-    response = _get(client, f"{API_URL}.json")
+def parse_archive_csv(text: str, start: date, scale: float = 1.0) -> dict[date, Normalized]:
+    """The CSV has metadata blocks first, then a data header. Interval values (rainfall):
+    'Från Datum Tid (UTC); Till …; Representativt dygn; value; quality'. Readings (snow depth):
+    'Datum; Tid (UTC); value; quality'. Trailing columns hold free-text notes."""
+    lines = text.lstrip("\ufeff").splitlines()
+    header = next((i for i, line in enumerate(lines) if line.startswith(("Från Datum Tid", "Datum;"))), None)
+    if header is None:
+        return {}
+    # Column positions of (day, value, quality).
+    day_col, value_col, quality_col = (2, 3, 4) if lines[header].startswith("Från") else (0, 2, 3)
+    values: dict[date, Normalized] = {}
+    for row in csv.reader(io.StringIO("\n".join(lines[header + 1 :])), delimiter=";"):
+        if len(row) <= quality_col or not row[day_col]:
+            continue
+        try:
+            day = date.fromisoformat(row[day_col].strip())
+        except ValueError:
+            continue
+        if day >= start:
+            values[day] = normalize(row[value_col].strip() or None, row[quality_col].strip() or None, scale)
+    return values
+
+
+def fetch_stations(client: httpx.Client, start: date, end: date, parameter: str = "precipitation") -> list[_Station]:
+    response = _get(client, f"{BASE_URL}/{PARAMETERS[parameter].number}.json")
     return parse_stations(response.json(), start, end) if response else []
 
 
-def _fetch_station_values(client: httpx.Client, station: _Station, start: date, use_archive: bool) -> dict[date, Normalized]:
+def _fetch_station_values(
+    client: httpx.Client, station: _Station, start: date, use_archive: bool, parameter: str
+) -> dict[date, Normalized]:
+    config = PARAMETERS[parameter]
     values: dict[date, Normalized] = {}
-    base = f"{API_URL}/station/{station.id}/period"
+    base = f"{BASE_URL}/{config.number}/station/{station.id}/period"
     latest = _get(client, f"{base}/latest-months/data.json")
     if latest:
-        values.update(parse_latest_months(latest.json()))
+        values.update(parse_latest_months(latest.json(), config.scale))
     if use_archive:
         archive = _get(client, f"{base}/corrected-archive/data.csv")
         if archive:
             # Corrected archive values replace the preliminary latest-months ones.
-            values.update(parse_archive_csv(archive.text, start))
+            values.update(parse_archive_csv(archive.text, start, config.scale))
     return values
 
 
@@ -155,16 +184,18 @@ def fetch_daily(
     stations: list[_Station] | None = None,
     use_archive: bool | None = None,
     today: date | None = None,
+    parameter: str = "precipitation",
 ) -> list[StationSeries]:
     """All stations' values for start..end. The archive is used automatically when start is
     older than latest-months reaches, or when use_archive=True (monthly corrections refresh)."""
     today = today or datetime.now(timezone.utc).date()
     if use_archive is None:
         use_archive = start < today - timedelta(days=LATEST_MONTHS_DAYS)
-    stations = stations if stations is not None else fetch_stations(client, start, end)
+    config = PARAMETERS[parameter]
+    stations = stations if stations is not None else fetch_stations(client, start, end, parameter)
 
     with ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS) as pool:
-        all_values = list(pool.map(lambda s: _fetch_station_values(client, s, start, use_archive), stations))
+        all_values = list(pool.map(lambda s: _fetch_station_values(client, s, start, use_archive, parameter), stations))
 
     result = []
     for station, values in zip(stations, all_values):
@@ -177,12 +208,16 @@ def fetch_daily(
             lon=station.lon,
             country="SE",
             owner=station.owner,
+            parameter=parameter,
         )
-        day, last = max(start, station.first_day), min(end, station.last_day)
-        while day <= last:
-            # A day without an observation becomes an explicit missing row (hollow circle).
-            series.values.append((day, values.get(day, Normalized(None, False, "missing"))))
-            day += timedelta(days=1)
+        if config.fill_missing:
+            day, last = max(start, station.first_day), min(end, station.last_day)
+            while day <= last:
+                # A day without an observation becomes an explicit missing row (hollow circle).
+                series.values.append((day, values.get(day, Normalized(None, False, "missing"))))
+                day += timedelta(days=1)
+        else:
+            series.values = sorted((d, v) for d, v in values.items() if start <= d <= end)
         if series.values:
             result.append(series)
     return result
@@ -195,6 +230,8 @@ def slice_series(series: list[StationSeries], start: date, end: date) -> list[St
         values = [(d, v) for d, v in s.values if start <= d <= end]
         if values:
             out.append(
-                StationSeries(s.source, s.source_station_id, s.name, s.region, s.lat, s.lon, s.country, values, s.owner)
+                StationSeries(
+                    s.source, s.source_station_id, s.name, s.region, s.lat, s.lon, s.country, values, s.owner, s.parameter
+                )
             )
     return out

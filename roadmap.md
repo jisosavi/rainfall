@@ -8,8 +8,12 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Next
 
-- [ ] Snow depth for Norway (Frost `surface_snow_thickness`, daily at 06 UTC, about 427 series) and Sweden (SMHI parameter 8, "Snödjup", 06 UTC, 405 active stations). No date shift needed: both are morning readings.
-- [ ] Cumulative rainfall ranking per station: this year, this month, this week
+- [ ] Top 15 rankings, as a "List | Top 15" switch in the left column; uses the existing measurement, country and date controls:
+  - Rainfall: totals for Week / Month / Year (up to the shown date) and rolling Last 30 days
+  - Snow depth: Now, Winter (deepest since 1 October), Winter (days with snow cover)
+  - Coverage rule: by default only stations with data on at least 90% of the period's days, with a switch to show all; each row shows its coverage (e.g. 29/30 days)
+  - Rank numbers next to the top 15 on the map; clicking a row opens the station
+  - Backend: `GET /api/rankings?parameter=&period=&date=&country=&limit=15&min_coverage=`
 
 - [ ] Year selector: browse by year, using `/api/years` and `/api/dates?year=`
 - [ ] Finnish translation: all text is in `frontend/src/strings.ts`. Add a language switch.

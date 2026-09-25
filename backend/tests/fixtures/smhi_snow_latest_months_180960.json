@@ -1,0 +1,89 @@
+{
+ "updated": 1790294400000,
+ "parameter": {
+  "key": "8",
+  "name": "Snödjup",
+  "summary": "momentanvärde, 1 gång/dygn, kl 06",
+  "unit": "meter"
+ },
+ "station": {
+  "key": "180960",
+  "name": "Kiruna",
+  "owner": "SMHI",
+  "ownerCategory": "CLIMATE",
+  "measuringStations": "CORE",
+  "height": 0.0
+ },
+ "period": {
+  "key": "latest-months",
+  "from": 1779062401000,
+  "to": 1790334000000,
+  "summary": "Data från senaste fyra månaderna",
+  "sampling": "Ej angivet"
+ },
+ "position": [
+  {
+   "from": -2245795200000,
+   "to": -157766401000,
+   "height": 505.0,
+   "latitude": 67.85,
+   "longitude": 20.2333
+  },
+  {
+   "from": 844128000000,
+   "to": 1275350399000,
+   "height": 500.0,
+   "latitude": 67.85,
+   "longitude": 20.2451
+  },
+  {
+   "from": 1635724800000,
+   "to": 1790335218000,
+   "height": 518.801,
+   "latitude": 67.8513,
+   "longitude": 20.2497
+  }
+ ],
+ "value": [
+  {
+   "date": 1789452000000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1789538400000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1789624800000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1789711200000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1789797600000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1789884000000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1789970400000,
+   "value": "0.00",
+   "quality": "G"
+  },
+  {
+   "date": 1790229600000,
+   "value": "0.00",
+   "quality": "G"
+  }
+ ]
+}

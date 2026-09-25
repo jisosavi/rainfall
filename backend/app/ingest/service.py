@@ -9,7 +9,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.db.models import PRECIPITATION, DailyValue, Station
-from app.ingest.common import StationSeries, date_chunks
+from app.ingest.common import StationSeries, check_plausible, date_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -63,19 +63,21 @@ def upsert_stations(session: Session, series: list[StationSeries]) -> dict[tuple
 
 
 def upsert_precipitation(session: Session, series: list[StationSeries], station_ids: dict[tuple[str, str], UUID]) -> int:
-    rows = [
-        {
-            "id": uuid4(),
-            "station_id": station_ids[(s.source, s.source_station_id)],
-            "parameter": s.parameter,
-            "date": day,
-            "value": value.value,
-            "has_data": value.has_data,
-            "raw_status": value.raw_status,
-        }
-        for s in series
-        for day, value in s.values
-    ]
+    rows = []
+    for s in series:
+        for day, raw in s.values:
+            value = check_plausible(s.parameter, raw)
+            rows.append(
+                {
+                    "id": uuid4(),
+                    "station_id": station_ids[(s.source, s.source_station_id)],
+                    "parameter": s.parameter,
+                    "date": day,
+                    "value": value.value,
+                    "has_data": value.has_data,
+                    "raw_status": value.raw_status,
+                }
+            )
     for i in range(0, len(rows), BATCH_SIZE):
         stmt = _insert(session, DailyValue).values(rows[i : i + BATCH_SIZE])
         stmt = stmt.on_conflict_do_update(
