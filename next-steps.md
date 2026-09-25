@@ -11,18 +11,19 @@ Done:
 - [x] Railway-ready Docker: honours `$PORT`, runs migrations on start, non-root, `/health` checks DB
 - [x] Config accepts Railway's `postgresql://` URL and comma-separated `CORS_ORIGINS`
 - [x] Tests (`backend/tests/`, run on SQLite, no Postgres needed)
+- [x] Railway web service deployed at https://rainfall-production.up.railway.app (health, DB and CORS verified)
+- [x] FMI ingestion (`backend/app/ingest/`, `python -m app.ingest`), tested against live FMI on SQLite and Postgres
 
 Next:
-- [ ] Section 1: create the Railway project and Postgres (manual), push repo to GitHub
-- [ ] Section 4: FMI ingestion (decide date convention and `-1` handling first, see below)
+- [ ] Railway cron service for ingestion (see README)
 - [ ] Station history endpoint for the detail panel, e.g. `GET /api/stations/{id}/history?start=&end=`
-- [ ] Frontend API client against the contract below
+- [ ] Frontend in `frontend/` (Vite + Vue 3). `npm run build` outputs `frontend/dist/` with base `/test/rainfall/`, which is uploaded manually
 
 ### API contract as implemented
 
 - `GET /health` → `{"status": "ok", "database": "ok"}` (503 if DB unreachable)
 - `GET /api/latest-date` → `{"date": "YYYY-MM-DD"}` (404 if no data yet)
-- `GET /api/stations?date=` → `{"date", "stations": [StationDay]}`. `date` is optional (defaults to latest). All active stations are returned; stations with no row for that day come back with `has_data: false`.
+- `GET /api/stations?date=` → `{"date", "stations": [StationDay]}`. `date` is optional and defaults to the latest date. Returns the active stations FMI reported for that day. A station with a missing value is included with `has_data: false` (hollow circle). A station with no row for that day, e.g. one not yet opened or already closed, is left out.
 - `GET /api/stations/{id}?date=` → `StationDay` (`id` is a UUID; 422 if malformed, 404 if unknown)
 - `GET /api/dates?year=` → `{"dates": [...]}` newest first; only days with at least one real value
 - `GET /api/years` → `{"years": [...]}` ascending
@@ -34,8 +35,14 @@ Next:
 - `has_data = true` ⇔ `precipitation_mm IS NOT NULL` (check constraint)
 - `precipitation_mm >= 0`
 - unique `(station_id, date)`; that index also covers lookups by `station_id`, so there is no separate one
-- open question for ingestion: FMI daily precipitation (`rrday`) uses `-1` for "no precipitation". Planned: store `0.0`, `has_data = true`, `raw_status = "-1"`
-- open question for ingestion: FMI's daily precipitation is a 06 UTC to 06 UTC accumulation. Decide and document which calendar date a value is stored under
+- `raw_status` stores FMI's original value text, e.g. `-1.0`, `0.0`, `NaN` or `4.5`
+
+### FMI data conventions (verified against the live API, 2026-09-25)
+
+- Source: `fmi::observations::weather::daily::timevaluepair`, parameter `rrday`, bbox `19,59,32,71`. Station id is the FMI `fmisid`. `region` is FMI's municipality name.
+- A value labelled date D covers 06 UTC on D to 06 UTC on D+1. We store it under D, the same date FMI uses. Checked against hourly sums at 5 stations.
+- `-1.0` means no precipitation: stored as `0.0` mm with `has_data = true`. `0.0` means a trace (< 0.05 mm): stored as `0.0` mm with `has_data = true`. `NaN` means missing: stored as `NULL` with `has_data = false`.
+- Coverage: about 189 stations since 2025, about 172 reporting per day. A full year for all stations comes back in one request (about 20 MB); ingestion uses 31-day chunks.
 
 ## 1. Add PostgreSQL and Railway environment
 

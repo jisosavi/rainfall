@@ -1,3 +1,4 @@
+from datetime import date
 from functools import lru_cache
 
 from pydantic import Field, field_validator
@@ -11,6 +12,10 @@ class Settings(BaseSettings):
     # Comma-separated string, e.g. "https://isosavi.com,https://www.isosavi.com".
     # Kept as str because pydantic-settings expects JSON for list fields.
     cors_origins_raw: str = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
+    # First date loaded when the database is empty.
+    ingest_start_date: date = Field(default=date(2025, 1, 1), alias="INGEST_START_DATE")
+    # Recent days re-fetched on every run, since FMI revises recent values.
+    ingest_refetch_days: int = Field(default=10, alias="INGEST_REFETCH_DAYS")
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 

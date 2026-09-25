@@ -63,10 +63,11 @@ def get_stations_for_date(
 ):
     day = _resolve_date(db, date_value)
 
-    # LEFT JOIN so stations without a row for the day are still returned (drawn as hollow circles).
+    # Ingestion stores a row (has_data=false) for every station FMI reports that day, even when
+    # the value is missing, so joining on rows shows operating stations and hides closed ones.
     rows = db.execute(
         select(Station, DailyPrecipitation)
-        .outerjoin(
+        .join(
             DailyPrecipitation,
             and_(DailyPrecipitation.station_id == Station.id, DailyPrecipitation.date == day),
         )

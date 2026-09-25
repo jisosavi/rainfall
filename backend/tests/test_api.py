@@ -31,10 +31,10 @@ def test_stations_defaults_to_latest_and_includes_no_data_stations(client, seede
     assert by_name["Oulu lentoasema"]["precipitation_mm"] is None
 
 
-def test_stations_for_date_without_rows_returns_all_hollow(client, seeded):
-    body = client.get("/api/stations", params={"date": "2026-01-01"}).json()
-    assert len(body["stations"]) == 2
-    assert all(not s["has_data"] for s in body["stations"])
+def test_stations_only_includes_stations_reported_that_day(client, seeded):
+    body = client.get("/api/stations", params={"date": "2025-12-31"}).json()
+    assert [s["name"] for s in body["stations"]] == ["Helsinki Kaisaniemi"]
+    assert client.get("/api/stations", params={"date": "2026-01-01"}).json()["stations"] == []
 
 
 def test_stations_rejects_bad_date(client, seeded):
