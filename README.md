@@ -14,7 +14,8 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 
 ```
 backend/
-  app/api/routes/   HTTP endpoints
+  app/api/routes/   HTTP endpoints (thin: validation and response shape)
+  app/services/     read-only data queries shared by the REST API and the MCP server (station search, series with summaries, day overviews, rankings, data freshness)
   app/db/           SQLAlchemy models and session
   app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), imo.py (Iceland), kaa.py (Estonia), service.py (shared)
   app/qc.py         neighbour check and hourly confirmation

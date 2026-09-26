@@ -4,6 +4,7 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
+| 2026-09-26 20:14 | Shared query layer (`app/services`) for the REST API and the coming MCP server: the existing endpoints now call it (unchanged behaviour), plus new queries for agents: station search near a point or by name, station coverage per measurement, observation series with summaries, a day overview per country or area, and data freshness per source. | Add shared query layer |
 | 2026-09-26 19:40 | The rankings button says "Top mean", "Top min" or "Top max" for temperature ("Top 15" for rainfall and snow depth). | Name the temperature rankings button |
 | 2026-09-26 19:21 | Estonia (Estonian Environment Agency, Keskkonnaagentuur), from 2025: 25 weather stations with rainfall (summed from hourly values 06–06 UTC, a day later than the other countries), snow depth (06 UTC), temperature (min/max from the agency's 18–18 UTC daily values, mean from hourly readings), heights and hourly confirmation of flagged rain. Estonia in the country filter, rankings and About dialog. Roadmap: the live feed's 154 stations, yearly corrections. | Add Estonian data |
 | 2026-09-26 19:04 | Neighbour check tuned on the rechecked history: maximum temperature limit 15 °C (islands in a cold spring sea and winter valleys were flagged at 10 °C), cold-weather limit 22 °C (fell tops just above 20 °C). Rules version 3, so the next run rechecks the temperature history once. | Tune temperature neighbour check |

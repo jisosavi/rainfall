@@ -12,6 +12,16 @@ from app.db.session import get_db
 from app.main import app
 
 
+@pytest.fixture(autouse=True)
+def _fresh_caches():
+    # The station-measurements cache is process-wide; each test has its own database.
+    from app.services.stations import clear_measurements_cache
+
+    clear_measurements_cache()
+    yield
+    clear_measurements_cache()
+
+
 @pytest.fixture
 def db():
     engine = create_engine(
