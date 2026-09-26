@@ -25,6 +25,8 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Later / ideas
 
+- Greenland snow depth: DMI publishes none (checked 2026-09-26, in both climateData and metObs). A possible source is Asiaq (Greenland's survey agency); check what it offers and its licence.
+
 - Germany: official DWD Open Data https://www.dwd.de/EN/ourservices/opendata/opendata.html (climate data at opendata.dwd.de) and the open-source JSON API Bright Sky https://brightsky.dev/docs/#/ built on it. Prefer DWD as the source of record; check licence (believed CC BY 4.0), the daily rainfall window and snow depth.
 - Naming: with the Baltics, Poland and Germany the app would no longer be only "Nordic"; decide on a title (e.g. "Northern Europe weather observations") before adding them.
 - Poland: https://api.meteo.pl/ and https://github.com/mrcnpdlk/weather-api. Note: api.meteo.pl is, as far as known, ICM's (University of Warsaw) forecast-model API, which needs a key; station observations come from IMGW-PIB (https://danepubliczne.imgw.pl, free). Check which gives daily rainfall and snow depth per station, the day definition and licence.

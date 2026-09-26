@@ -19,9 +19,14 @@ const newer = computed(() => {
 })
 const isLatest = computed(() => props.current !== null && props.current === props.dates[0])
 
+// The picker allows up to today so its built-in "Today" button works; a date newer than the
+// latest data (usually today, before its values exist) shows the latest date instead.
+const today = new Date().toISOString().slice(0, 10)
+
 function onInput(event: Event) {
   const value = (event.target as HTMLInputElement).value
-  if (value) emit('change', value)
+  if (!value) return
+  emit('change', props.dates[0] && value > props.dates[0] ? null : value)
 }
 </script>
 
@@ -34,7 +39,7 @@ function onInput(event: Event) {
         type="date"
         :value="current ?? ''"
         :min="dates[dates.length - 1]"
-        :max="dates[0]"
+        :max="today"
         @change="onInput"
       />
     </label>
