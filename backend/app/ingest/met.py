@@ -29,7 +29,6 @@ from app.ingest.common import Normalized, StationSeries
 logger = logging.getLogger(__name__)
 
 FROST_URL = "https://frost.met.no"
-TIME_OFFSET = "PT6H"
 
 
 @dataclass(frozen=True)
@@ -38,6 +37,8 @@ class _Element:
     time_resolution: str | None
     shift_days: int  # stored date = Frost label - shift_days
     fill_missing: bool  # add has_data=false rows for unreported days
+    time_offset: str = "PT6H"
+    allow_negative: bool = False
 
 
 ELEMENTS = {
@@ -45,6 +46,11 @@ ELEMENTS = {
     "precipitation": _Element("sum(precipitation_amount P1D)", None, shift_days=1, fill_missing=True),
     # Readings at 06 UTC on the label date.
     "snow_depth": _Element("surface_snow_thickness", "P1D", shift_days=0, fill_missing=False),
+    # Temperature (checked against hourly data): the PT0H mean covers 00–24 UTC on D, and the
+    # PT18H min/max cover 18 UTC on D-1 to 18 UTC on D, both labelled D, so no shift.
+    "temp_mean": _Element("mean(air_temperature P1D)", "P1D", 0, True, time_offset="PT0H", allow_negative=True),
+    "temp_min": _Element("min(air_temperature P1D)", "P1D", 0, True, time_offset="PT18H", allow_negative=True),
+    "temp_max": _Element("max(air_temperature P1D)", "P1D", 0, True, time_offset="PT18H", allow_negative=True),
 }
 COUNTRIES = {"NO", "SJ"}
 SOURCE = "met"
@@ -107,7 +113,7 @@ def tidy_owner(holders: list[str] | None) -> str | None:
 
 
 def _params(element: _Element, **extra) -> dict:
-    params = {"elements": element.id, "timeoffsets": TIME_OFFSET, **extra}
+    params = {"elements": element.id, "timeoffsets": element.time_offset, **extra}
     if element.time_resolution:
         params["timeresolutions"] = element.time_resolution
     return params
@@ -131,11 +137,11 @@ def _get(client: httpx.Client, path: str, params: dict, retries: int = 3) -> lis
     return []
 
 
-def parse_quality(observation: dict) -> Normalized:
+def parse_quality(observation: dict, allow_negative: bool = False) -> Normalized:
     value = observation.get("value")
     quality = observation.get("qualityCode")
     raw = f"{value}" + (f"|q{quality}" if quality is not None else "")
-    if value is None or value < 0 or (quality is not None and quality > MAX_QUALITY_CODE):
+    if value is None or (value < 0 and not allow_negative) or (quality is not None and quality > MAX_QUALITY_CODE):
         return Normalized(None, False, raw)
     return Normalized(float(value), True, raw)
 
@@ -210,7 +216,7 @@ def fetch_values(
         # Prefer time series 0 when a station has several.
         observations = sorted(item.get("observations", []), key=lambda o: o.get("timeSeriesId", 0))
         if observations:
-            values.setdefault(station_id, {}).setdefault(label - shift, parse_quality(observations[0]))
+            values.setdefault(station_id, {}).setdefault(label - shift, parse_quality(observations[0], element.allow_negative))
     return values
 
 

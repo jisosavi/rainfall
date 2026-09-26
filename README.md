@@ -112,7 +112,7 @@ If the site moves to a new path, change `VITE_BASE`. If it moves to a new domain
 
 ## API
 
-All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_depth` (cm).
+All endpoints take `parameter=precipitation` (default, mm), `parameter=snow_depth` (cm) or a temperature, `temp_mean`, `temp_min` or `temp_max` (°C). Rankings don't take temperatures yet (422).
 
 | Endpoint | Returns |
 |---|---|
@@ -137,6 +137,7 @@ Values are stored in `daily_values`, one row per station, measurement type (`par
 
 - **Rainfall** (`precipitation`, mm): every stored date D means the same 24 hours in every country, **06 UTC on D to 06 UTC on D+1**, except Iceland (09–09 UTC, see below).
 - **Snow depth** (`snow_depth`, cm): a reading on the morning of D (06 UTC in Finland, Norway and Sweden). It's a snapshot, not a total, so no date shift is ever needed, and readings a few hours apart (e.g. Iceland's 09 UTC) are comparable. Many Norwegian and Swedish stations report snow irregularly or only in winter, so for those only reported days are stored; a station is shown on the snow map on the days it measured.
+- **Temperature** (°C), following Nordic climate practice: `temp_mean` is the mean over **00–24 UTC on D**; `temp_min` and `temp_max` are the lowest and highest temperature from **18 UTC on D-1 to 18 UTC on D**. Where a source's daily values use other windows (FMI's mean, DMI and IMO), ours are computed from hourly values: the mean needs at least 20 of 24 hours, the minimum and maximum at least 22; otherwise the day is missing (`raw_status` e.g. `hourly19`). Negative values are allowed only for temperatures (check constraint, migration `0008`).
 
 ### FMI (Finland)
 
@@ -145,6 +146,7 @@ These were verified against the live API on 2026-09-25.
 - **Source:** WFS stored query `fmi::observations::weather::daily::timevaluepair`, parameter `rrday`, bbox `19,59,32,71`. `region` is FMI's municipality name.
 - **Date:** a value labelled date D covers 06 UTC on D to 06 UTC on D+1. It's stored under D, the same date FMI uses. So yesterday's value exists only after 06 UTC today.
 - **Snow depth:** FMI parameter `snow`, fetched in the same request as `rrday`, from the same 169 stations. `-1.0` means no snow cover and is stored as `0` cm with `has_data = true`.
+- **Temperature:** daily `tmin`/`tmax` (same request) cover 18 UTC on D-1 to 18 UTC on D, labelled D (checked on 63 days against hourly data) and stored as-is; `-1.0` is a real temperature here. FMI's daily mean `tday` follows the Finnish local day, so `temp_mean` is the mean of hourly `TA_PT1H_AVG` (a time marks the end of its hour), fetched for all stations in 7-day requests. About 188 stations. Rain-only stations get no temperature rows.
 - **Values (rainfall):**
 
   | FMI value | Meaning | Stored as |
@@ -168,6 +170,7 @@ These were verified against the live API on 2026-09-25.
 - **Date:** Frost labels a value by the day its window **ends**: label D covers 06 UTC on D-1 to 06 UTC on D. **It's stored under D-1.** This was checked two ways: against hourly sums at 5 stations, and against Finnish neighbours near the border, which agree best with this alignment (0.9 mm average difference, against about 2.4 mm one day off).
 - **Values:** Frost already turns "no precipitation" (`-1`) into `0.0`. Quality codes 0–4 are kept; 5 and above are treated as missing. Frost has no missing-value marker, so a day without a value becomes a `has_data = false` row. `raw_status` holds the value and quality code, e.g. `14.9|q0`, or `missing`.
 - **Snow depth:** element `surface_snow_thickness`, daily (`P1D`) at `PT6H`, in cm. Label D is the reading at 06 UTC on D (equal to the hourly value then), so it's stored under D with **no shift**. `0` means no snow. About 461 stations, 98 of them snow-only.
+- **Temperature:** `mean(air_temperature P1D)` at `PT0H` (00–24 UTC) and `min`/`max(air_temperature P1D)` at `PT18H` (18 UTC on D-1 to 18 UTC on D), labelled D and stored under D with **no shift**. About 1000 stations with a mean (about 400 of them Statens vegvesen road-weather stations), about 530 with min/max.
 - **Names:** Frost's upper-case names are shown in normal capitalisation, e.g. "Oslo - Blindern". Station owners likewise, keeping acronyms: "Statens vegvesen", "Bane NOR", "NVE"; `MET.NO` becomes "MET Norway". `region` is the municipality, or the county if there's no municipality.
 - **Coverage:** about 707 stations with data in 2026, about 610 reporting on a given day.
 
@@ -180,6 +183,7 @@ These were verified against the live API on 2026-09-25.
 - **Periods:** `latest-months` (JSON, about the last 4 months) and `corrected-archive` (CSV, quality-controlled history up to about 3 months ago). The archive is used automatically for older ranges, and monthly by `--archive-refresh`, whose corrected values replace the preliminary ones.
 - **Values:** quality `G` (checked) and `Y` (suspicious, or newest and not yet checked) are kept; anything else is treated as missing. `raw_status` holds value and quality, e.g. `4.2|G`. Missing days become `has_data = false` rows.
 - **Snow depth:** parameter `8` ("Snödjup, momentanvärde, kl 06"), a reading at 06 UTC **in metres**, converted to cm. Values carry a timestamp instead of a representative day, and the archive CSV has other columns (`Datum;Tid;Snödjup;Kvalitet`). About 405 active stations. `--archive-refresh` covers snow depth too.
+- **Temperature:** parameters `2` (daily mean, 00–24 UTC), `19` (minimum) and `20` (maximum), both 18 UTC on D-1 to 18 UTC on D; `ref` is D in each case, so they're stored as-is. Same formats as rainfall. About 230 stations. `--archive-refresh` covers temperatures too.
 - **Stations:** SMHI's own plus other owners (municipal networks such as VA Syd, the armed forces), with the owner stored. Names are kept as SMHI writes them, including suffixes such as `A` (automatic). SMHI gives no municipality.
 
 ### DMI (Denmark, Greenland, Faroe Islands)
@@ -189,6 +193,7 @@ These were verified against the live API on 2026-09-25.
 - **Source:** DMI's climateData API, `https://opendataapi.dmi.dk/v2/climateData`. No registration or key; fair use 500 requests per 5 s.
 - **Rainfall:** always the **sum of the 24 hourly `acc_precip` values** from 06 UTC on D to 06 UTC on D+1; missing hours are scattered outages, so a day with 23 of 24 hours counts (`raw_status` e.g. `4.2|hourly23`); with 22 or fewer it is missing. Stations with no hourly data in a period (e.g. Greenland's inactive manual stations) get no rows for it. DMI's own daily totals can't be used: mainland Danish ones cover the local calendar day, and the labels aren't reliable (Faroese daily values labelled 06–06 UTC equal the hourly sum over 00–24 UTC; Greenland's match 06–06 UTC).
 - **Snow depth:** daily `snow_depth` (cm) from 06 UTC on D, stored under D. Denmark only (about 92 stations, mostly manual); Greenland and the Faroe Islands have none in this data. Reported days only.
+- **Temperature:** DMI's daily values cover Danish local days, so ours come from hourly `mean_temp` (the mean of the hours starting 00–23 UTC), `min_temp` and `max_temp_w_date` (the lowest / highest over the hours starting 18 UTC on D-1 to 17 UTC on D). About 98 stations with a mean and 78 with min/max, in all three countries.
 - **Stations:** about 137 with rainfall (113 Denmark, 20 Greenland, 4 Faroe Islands), of which about 118 have hourly data. Owner (DMI, Forsvaret, Mittafik/Grønlandske lufthavne, harbours…) and height come from the station list. Greenland's manual stations report no recent data.
 
 ### IMO (Iceland)
@@ -198,11 +203,12 @@ These were verified against the live API on 2026-09-26.
 - **Source:** Veðurstofa Íslands, `https://api.vedur.is/weather`. No registration or key; licence CC BY 4.0 ([terms](https://athuganir.vedur.is/disclaimer?lng=en)).
 - **Rainfall — the one exception to 06–06 UTC:** the API publishes no hourly rainfall (the hourly `r` is always empty), so it can't be summed over our day. The only daily rainfall is `r09` in the EDR day collection: the 24 h total from **09 UTC on D-1 to 09 UTC on D**, labelled D (it equals the manual stations' own 09 UTC readings on D). It's stored under **D-1**, whose 06–06 UTC day it overlaps by 21 of 24 hours. The app states the 3-hour offset. About 45 stations over 2025–2026, about 8 on a typical recent day. Stations that report in a period get a missing row for each day without a value, so they show as hollow circles (migration `0007` added these rows for data stored before). Values are quality-checked before publication and arrive **3–4 days late**; the daily re-fetch of the last 10 days picks them up. No hourly confirmation is possible, so flagged Icelandic values stay flagged.
 - **Snow depth:** manual stations' 09 UTC readings (types `ur`, `sk`), `snd` in cm, stored under D. Without `snd`, the observer's snow cover `sncm` = 0 ("No snow") counts as 0 cm; partly or fully covered without a depth isn't stored. (`snc` can contradict `sncm` and isn't used.)
+- **Temperature:** from the EDR hour collection (the day collection has no minimum or maximum): the mean of `t`, the on-the-hour reading, at 00–23 UTC; the minimum / maximum of `tn` / `tx`, each the extreme of the past hour, over the hours ending 19 UTC on D-1 to 18 UTC on D. The collection takes one parameter per request and at most 3 days (413 otherwise). Near real time, about 170 stations.
 - **Stations:** 343 active with owner (stray leading commas removed) and elevation. Names can repeat (e.g. two "Reykjavík" stations with different ids).
 
 ### Plausibility limits (all sources)
 
-Values above **300 mm of rain per day** or **600 cm of snow** are stored as missing, whatever the source's quality flag says; the original value stays in `raw_status` with `|implausible`. Both limits are well above Nordic records. This caught SMHI's Söråker station (Sundsvalls kommun), whose feed reported 17,280 mm a day with quality `Y` in 2026. Migration `0005` applied the rule to already stored rows.
+Values above **300 mm of rain per day** or **600 cm of snow**, and temperatures outside **−60 to +40 °C**, are stored as missing, whatever the source's quality flag says; the original value stays in `raw_status` with `|implausible`. Both limits are well above Nordic records. This caught SMHI's Söråker station (Sundsvalls kommun), whose feed reported 17,280 mm a day with quality `Y` in 2026. Migration `0005` applied the rule to already stored rows.
 
 ### Neighbour check (all sources)
 
@@ -212,6 +218,8 @@ After every ingestion, `app/qc.py` compares unusually high values with the same 
 |---|---|---|---|---|
 | Rainfall | 30 mm | within 50 km | > 3 × highest neighbour + 20 mm | 3 neighbours with data |
 | Snow depth | 50 cm | within 30 km **and ±300 m altitude** | > 3 × highest neighbour + 50 cm | 3 neighbours with data |
+| Temperature mean / max | every value | within 50 km **and ±300 m altitude** | more than 10 °C above **or below** the neighbours' median | 3 neighbours with data |
+| Temperature min | every value | within 50 km **and ±300 m altitude** | more than 15 °C above or below the median (frost hollows are real) | 3 neighbours with data |
 
 Flagged **rainfall** is then checked against the station's own hourly readings (FMI `PRA_PT1H_ACC`, Frost `sum(precipitation_amount PT1H)`, SMHI parameter 7, DMI hourly `acc_precip`). If they add up to the daily value (within 5 mm or 20%), the storm was real: the flag becomes `confirmed_hourly`, the value is ranked as normal, and the panel notes it. Stations without hourly data (mostly manual) keep the flag. On 2025–2026 data this confirmed 5 of 17 flags, e.g. Nurmes Valtimo 44 mm with 37 mm in one hour; Torpshammar A's 76 mm stayed flagged, its hours adding up to only 40 mm.
 

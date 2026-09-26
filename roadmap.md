@@ -15,9 +15,12 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
 
 
-- [ ] Temperature: analyse whether daily temperature (at least mean, minimum and maximum) can be added for every country. Check per source what exists and how the day is defined (FMI daily `tday`/`tmin`/`tmax`; Frost `mean(air_temperature P1D)` etc.; SMHI parameters 2/19/20; DMI `mean_temp`/`min_temp`/`max_temp`; IMO daily `t`/`tnn`/`txx`), whether a common day window is possible, and how it fits the UI (third measurement in the switch, own colour scale, neighbour check).
+- [ ] Temperature UI: a Temperature measurement with Mean / Min / Max, a diverging colour scale (validated for colour blindness), and a station-panel chart with the min–max band and the mean line. The backend already serves `temp_mean`, `temp_min` and `temp_max`.
+- [ ] Temperature rankings: warmest and coldest (e.g. highest maximum, lowest minimum, warmest and coldest mean for a period).
 
 ## Later / ideas
+
+- Greenland snow depth from CARRA (Copernicus Arctic Regional Reanalysis, ~2.5 km), shown as a model estimate and clearly marked as such, since DMI publishes no Greenland snow depth. Check CARRA's publication delay (likely months; ERA5-Land ~1 week, coarser), the GRIB/NetCDF processing needs (xarray, cfgrib) and the attribution text. The Copernicus key goes in a Railway variable and `backend/.env`, never the repo.
 
 - Greenland snow depth: DMI publishes none (checked 2026-09-26, in both climateData and metObs). A possible source is Asiaq (Greenland's survey agency); check what it offers and its licence.
 

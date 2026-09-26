@@ -8,8 +8,8 @@ After fetching, the spatial quality check (app.qc) re-flags suspect values over 
 the run covered. `--qc-only` runs just the check for --start..--end (default: from
 INGEST_START_DATE to yesterday).
 
-`--source smhi --archive-refresh` re-loads the last SMHI_ARCHIVE_REFRESH_DAYS days of rainfall
-and snow depth from SMHI's corrected archive, replacing preliminary values (run monthly).
+`--source smhi --archive-refresh` re-loads the last SMHI_ARCHIVE_REFRESH_DAYS days of rainfall,
+snow depth and temperature from SMHI's corrected archive, replacing preliminary values (run monthly).
 """
 
 import argparse
@@ -22,7 +22,7 @@ import httpx
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.ingest import dmi, fmi, imo, met, smhi
-from app.db.models import PRECIPITATION, SNOW_DEPTH
+from app.db.models import PRECIPITATION, SNOW_DEPTH, TEMPERATURES
 from app.qc import confirm_with_hourly, flag_spatial_outliers
 from app.ingest.service import default_range, run_ingest
 
@@ -30,7 +30,7 @@ logger = logging.getLogger("app.ingest")
 
 ALL_SOURCES = ["fmi", "met", "smhi", "dmi", "imo"]
 # Measurement types each source provides.
-SOURCE_PARAMETERS = {source: (PRECIPITATION, SNOW_DEPTH) for source in ALL_SOURCES}
+SOURCE_PARAMETERS = {source: (PRECIPITATION, SNOW_DEPTH, *TEMPERATURES) for source in ALL_SOURCES}
 
 
 def main() -> int:
@@ -132,7 +132,10 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
 def _ingest(session, source: str, start: date, end: date, settings, archive_refresh: bool) -> int:
     if source == "fmi":
         with httpx.Client(timeout=120, headers={"User-Agent": met.USER_AGENT}) as client:
-            return run_ingest(session, lambda a, b: fmi.fetch_daily(client, a, b), start, end, source)
+            # Daily values (rainfall, snow, min/max), then the 00–24 UTC mean from hourly data.
+            total = run_ingest(session, lambda a, b: fmi.fetch_daily(client, a, b), start, end, source)
+            fetch_mean = lambda a, b: fmi.fetch_daily_mean_temperature(client, a, b)
+            return total + run_ingest(session, fetch_mean, start, end, "fmi temp_mean")
     total = 0
     if source == "met":
         with met.make_client(settings.frost_client_id) as client:

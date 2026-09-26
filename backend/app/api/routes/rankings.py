@@ -85,6 +85,8 @@ def get_rankings(
     min_coverage: float = Query(0.9, ge=0, le=1, description="Share of the period's days a station needs data on."),
     db: Session = Depends(get_db),
 ):
+    if parameter.startswith("temp_"):
+        raise HTTPException(status_code=422, detail="Temperature rankings aren't available yet.")
     if (parameter == SNOW_DEPTH) != (period in SNOW_PERIODS):
         raise HTTPException(status_code=422, detail=f"Period '{period}' doesn't apply to {parameter}.")
     if country is not None and country not in COUNTRY_CODES:

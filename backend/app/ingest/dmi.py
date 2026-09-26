@@ -14,6 +14,11 @@ Facts verified against the live API (2026-09):
   get no rows for it, so they don't show as permanently hollow circles.
 - Snow depth (`snow_depth`, cm) is daily, from 06 UTC on D, Denmark only (mostly manual
   stations). Only reported days are stored.
+- Temperature: DMI's daily values cover Danish local days, so ours are computed from the
+  hourly `mean_temp`, `min_temp` and `max_temp_w_date`. Mean: the average of the 24
+  hourly means starting 00–23 UTC on D (at least 20 hours). Min/max: the lowest hourly
+  minimum / highest hourly maximum over 18 UTC on D-1 to 18 UTC on D (at least 22 hours).
+  Every day in range gets a row (missing when too many hours lack data).
 - Countries: DNK -> DK, GRL -> GL, FRO -> FO. The station list gives owner and height.
 """
 
@@ -36,9 +41,18 @@ COUNTRIES = {"DNK": "DK", "GRL": "GL", "FRO": "FO"}
 PAGE_LIMIT = 300000
 HOURS_PER_DAY = 24
 MIN_HOURS = 23  # one missing hour is accepted
+TEMP_MEAN_MIN_HOURS = 20
+TEMP_EXTREME_MIN_HOURS = 22
 
 # Our parameter -> DMI parameterId.
-PARAMETER_IDS = {"precipitation": "acc_precip", "snow_depth": "snow_depth"}
+PARAMETER_IDS = {
+    "precipitation": "acc_precip",
+    "snow_depth": "snow_depth",
+    "temp_mean": "mean_temp",
+    "temp_min": "min_temp",
+    "temp_max": "max_temp_w_date",
+}
+TEMPERATURES = ("temp_mean", "temp_min", "temp_max")
 
 
 @dataclass
@@ -152,6 +166,34 @@ def daily_from_hours(features: list[dict], start: date, end: date) -> dict[str, 
     return result
 
 
+def temperature_from_hours(
+    features: list[dict], start: date, end: date, parameter: str
+) -> dict[str, dict[date, Normalized]]:
+    """Aggregate hourly temperatures into our days: the mean over hours starting 00–23 UTC
+    on D, the minimum/maximum over hours starting 18 UTC on D-1 to 17 UTC on D."""
+    shift = timedelta(0) if parameter == "temp_mean" else timedelta(hours=-6)
+    min_hours = TEMP_MEAN_MIN_HOURS if parameter == "temp_mean" else TEMP_EXTREME_MIN_HOURS
+    hours: dict[tuple[str, date], dict[datetime, float]] = defaultdict(dict)
+    for feature in features:
+        p = feature["properties"]
+        if not _valid(p):
+            continue
+        begins = datetime.fromisoformat(p["from"]).astimezone(timezone.utc)
+        day = (begins - shift).date()  # e.g. the hour 18–19 UTC on D-1 is the first of D's min/max
+        if start <= day <= end:
+            hours[(p["stationId"], day)][begins] = float(p["value"])
+    aggregate = {"temp_mean": lambda v: sum(v) / len(v), "temp_min": min, "temp_max": max}[parameter]
+    result: dict[str, dict[date, Normalized]] = defaultdict(dict)
+    for (station_id, day), by_hour in hours.items():
+        values = list(by_hour.values())
+        if len(values) >= min_hours:
+            value = round(aggregate(values), 1)
+            result[station_id][day] = Normalized(value, True, f"{value}|hourly{min(len(values), HOURS_PER_DAY)}")
+        else:
+            result[station_id][day] = Normalized(None, False, f"hourly{len(values)}")
+    return result
+
+
 def daily_06_utc(features: list[dict], start: date, end: date) -> dict[str, dict[date, Normalized]]:
     """DMI daily values labelled 06 UTC on D to 06 UTC on D+1. Used for snow depth, a single
     06 UTC reading, where the label is reliable; not for rainfall totals (see above)."""
@@ -181,13 +223,20 @@ def fetch_daily(
 ) -> list[StationSeries]:
     stations = stations if stations is not None else fetch_stations(client, start, end, parameter)
     parameter_id = PARAMETER_IDS[parameter]
-    window = f"{_utc(start)}/{_utc(end + timedelta(days=1))}"
-
-    resolution = "hour" if parameter == "precipitation" else "day"
+    if parameter in TEMPERATURES:
+        window = f"{_utc(start - timedelta(days=1), 18)}/{_utc(end + timedelta(days=1), 0)}"
+    else:
+        window = f"{_utc(start)}/{_utc(end + timedelta(days=1))}"
+    resolution = "day" if parameter == "snow_depth" else "hour"
     features = _get_features(
         client, "/stationValue/items", {"parameterId": parameter_id, "timeResolution": resolution, "datetime": window}
     )
-    by_station = daily_from_hours(features, start, end) if parameter == "precipitation" else daily_06_utc(features, start, end)
+    if parameter == "precipitation":
+        by_station = daily_from_hours(features, start, end)
+    elif parameter in TEMPERATURES:
+        by_station = temperature_from_hours(features, start, end, parameter)
+    else:
+        by_station = daily_06_utc(features, start, end)
 
     result = []
     for s in stations:
@@ -206,8 +255,8 @@ def fetch_daily(
         values = by_station.get(s.id, {})
         if not values:
             continue  # no data from this station in the period
-        if parameter == "precipitation":
-            # Every day in range; without all 24 hours a day is missing (hollow circle).
+        if parameter != "snow_depth":
+            # Every day in range; without enough hours a day is missing (hollow circle).
             day = start
             while day <= end:
                 series.values.append((day, values.get(day, Normalized(None, False, "missing"))))

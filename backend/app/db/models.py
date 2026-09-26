@@ -52,8 +52,12 @@ class Station(Base):
 # Measurement types stored in daily_values.
 PRECIPITATION = "precipitation"  # 24 h total, mm, 06 UTC on D to 06 UTC on D+1
 SNOW_DEPTH = "snow_depth"  # reading at 06 UTC on D, cm
-PARAMETERS = (PRECIPITATION, SNOW_DEPTH)
-UNITS = {PRECIPITATION: "mm", SNOW_DEPTH: "cm"}
+TEMP_MEAN = "temp_mean"  # mean air temperature, 00–24 UTC on D, °C
+TEMP_MIN = "temp_min"  # minimum, 18 UTC on D-1 to 18 UTC on D, °C
+TEMP_MAX = "temp_max"  # maximum, 18 UTC on D-1 to 18 UTC on D, °C
+TEMPERATURES = (TEMP_MEAN, TEMP_MIN, TEMP_MAX)
+PARAMETERS = (PRECIPITATION, SNOW_DEPTH, *TEMPERATURES)
+UNITS = {PRECIPITATION: "mm", SNOW_DEPTH: "cm", TEMP_MEAN: "°C", TEMP_MIN: "°C", TEMP_MAX: "°C"}
 
 
 class DailyValue(Base):
@@ -64,7 +68,10 @@ class DailyValue(Base):
         # Also serves as the station_id index: station_id is the leading column.
         UniqueConstraint("station_id", "parameter", "date", name="uq_daily_values_station_parameter_date"),
         Index("ix_daily_values_parameter_date", "parameter", "date"),
-        CheckConstraint("value IS NULL OR value >= 0", name="ck_daily_values_non_negative"),
+        # Rain and snow can't be negative; temperatures can.
+        CheckConstraint(
+            "value IS NULL OR value >= 0 OR parameter LIKE 'temp_%'", name="ck_daily_values_non_negative"
+        ),
         CheckConstraint(
             "(has_data AND value IS NOT NULL) OR (NOT has_data AND value IS NULL)",
             name="ck_daily_values_has_data_matches_value",

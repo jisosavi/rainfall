@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-Parameter = Literal["precipitation", "snow_depth"]
+Parameter = Literal["precipitation", "snow_depth", "temp_mean", "temp_min", "temp_max"]
 
 
 class StationDay(BaseModel):

@@ -5,10 +5,16 @@ from datetime import date, timedelta
 
 CHUNK_DAYS = 31
 
-# Values above these are treated as missing, whatever the source's quality flag says. They
-# are well above Nordic records (daily rainfall: Finland ~198 mm, Norway ~230 mm) and catch
-# broken feeds, e.g. SMHI's Söråker reporting 17280 mm a day with quality "Y" in 2026.
-PLAUSIBLE_MAX = {"precipitation": 300.0, "snow_depth": 600.0}
+# Values outside these are treated as missing, whatever the source's quality flag says. They
+# lie well beyond Nordic records (daily rainfall: Finland ~198 mm, Norway ~230 mm; temperature
+# about -51 to +35 °C) and catch broken feeds, e.g. SMHI's Söråker reporting 17280 mm a day.
+PLAUSIBLE_RANGE = {
+    "precipitation": (0.0, 300.0),
+    "snow_depth": (0.0, 600.0),
+    "temp_mean": (-60.0, 40.0),
+    "temp_min": (-60.0, 40.0),
+    "temp_max": (-60.0, 40.0),
+}
 IMPLAUSIBLE = "implausible"
 
 
@@ -39,7 +45,8 @@ class StationSeries:
 
 def check_plausible(parameter: str, value: "Normalized") -> "Normalized":
     """Turn an impossible value into a missing one, keeping the source's raw value."""
-    if value.value is not None and value.value > PLAUSIBLE_MAX[parameter]:
+    low, high = PLAUSIBLE_RANGE[parameter]
+    if value.value is not None and not low <= value.value <= high:
         return Normalized(None, False, f"{value.raw_status}|{IMPLAUSIBLE}"[:64])
     return value
 

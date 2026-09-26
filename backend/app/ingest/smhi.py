@@ -15,6 +15,9 @@ Facts verified against the live API (2026-09):
   06 UTC, **in metres** (converted to cm). Values carry a timestamp instead of ref, and the
   archive CSV has different columns (Datum; Tid; Snödjup; Kvalitet). Many stations report
   irregularly, so only reported days are stored (no missing rows).
+- Temperature: parameter 2 (daily mean) covers 00–24 UTC on D, parameters 19/20 (min/max)
+  18 UTC on D-1 to 18 UTC on D, all with ref D — exactly our definitions (the from/to
+  times are in the data). Interval format like rainfall; negative values allowed.
 - No registration. Licence CC BY 4.0: credit SMHI and say the data was processed.
 """
 
@@ -46,11 +49,15 @@ class _Parameter:
     number: int
     scale: float  # multiply SMHI's value to get our unit
     fill_missing: bool  # add has_data=false rows for unreported days
+    allow_negative: bool = False
 
 
 PARAMETERS = {
     "precipitation": _Parameter(5, scale=1.0, fill_missing=True),  # mm
     "snow_depth": _Parameter(8, scale=100.0, fill_missing=False),  # metres -> cm
+    "temp_mean": _Parameter(2, scale=1.0, fill_missing=True, allow_negative=True),  # °C
+    "temp_min": _Parameter(19, scale=1.0, fill_missing=True, allow_negative=True),
+    "temp_max": _Parameter(20, scale=1.0, fill_missing=True, allow_negative=True),
 }
 
 
@@ -91,13 +98,13 @@ def _get(client: httpx.Client, url: str, retries: int = 3) -> httpx.Response | N
     return None
 
 
-def normalize(value: str | None, quality: str | None, scale: float = 1.0) -> Normalized:
+def normalize(value: str | None, quality: str | None, scale: float = 1.0, allow_negative: bool = False) -> Normalized:
     raw = f"{value}|{quality}"
     try:
         number = float(value) if value is not None else None
     except ValueError:
         number = None
-    if number is None or number < 0 or quality not in VALID_QUALITIES:
+    if number is None or (number < 0 and not allow_negative) or quality not in VALID_QUALITIES:
         return Normalized(None, False, raw)
     return Normalized(round(number * scale, 2), True, raw)
 
@@ -124,17 +131,17 @@ def parse_stations(payload: dict, start: date, end: date) -> list[_Station]:
     return stations
 
 
-def parse_latest_months(payload: dict, scale: float = 1.0) -> dict[date, Normalized]:
+def parse_latest_months(payload: dict, scale: float = 1.0, allow_negative: bool = False) -> dict[date, Normalized]:
     """Interval values (rainfall) carry `ref`, the representative day; readings (snow depth)
     carry `date`, a timestamp in ms, whose UTC date is the reading's date."""
     values = {}
     for v in payload.get("value") or []:
         day = date.fromisoformat(v["ref"]) if v.get("ref") else _ms_to_date(v["date"])
-        values[day] = normalize(v.get("value"), v.get("quality"), scale)
+        values[day] = normalize(v.get("value"), v.get("quality"), scale, allow_negative)
     return values
 
 
-def parse_archive_csv(text: str, start: date, scale: float = 1.0) -> dict[date, Normalized]:
+def parse_archive_csv(text: str, start: date, scale: float = 1.0, allow_negative: bool = False) -> dict[date, Normalized]:
     """The CSV has metadata blocks first, then a data header. Interval values (rainfall):
     'Från Datum Tid (UTC); Till …; Representativt dygn; value; quality'. Readings (snow depth):
     'Datum; Tid (UTC); value; quality'. Trailing columns hold free-text notes."""
@@ -153,7 +160,9 @@ def parse_archive_csv(text: str, start: date, scale: float = 1.0) -> dict[date, 
         except ValueError:
             continue
         if day >= start:
-            values[day] = normalize(row[value_col].strip() or None, row[quality_col].strip() or None, scale)
+            values[day] = normalize(
+                row[value_col].strip() or None, row[quality_col].strip() or None, scale, allow_negative
+            )
     return values
 
 
@@ -170,12 +179,12 @@ def _fetch_station_values(
     base = f"{BASE_URL}/{config.number}/station/{station.id}/period"
     latest = _get(client, f"{base}/latest-months/data.json")
     if latest:
-        values.update(parse_latest_months(latest.json(), config.scale))
+        values.update(parse_latest_months(latest.json(), config.scale, config.allow_negative))
     if use_archive:
         archive = _get(client, f"{base}/corrected-archive/data.csv")
         if archive:
             # Corrected archive values replace the preliminary latest-months ones.
-            values.update(parse_archive_csv(archive.text, start, config.scale))
+            values.update(parse_archive_csv(archive.text, start, config.scale, config.allow_negative))
     return values
 
 

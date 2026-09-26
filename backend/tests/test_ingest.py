@@ -90,7 +90,7 @@ def test_run_ingest_with_mocked_fmi(db):
         total = run_ingest(db, lambda a, b: fmi.fetch_daily(client, a, b), date(2026, 8, 1), date(2026, 9, 22))
 
     assert len(requests) == 2  # two 31-day chunks
-    assert requests[0]["parameters"] == "rrday,snow"
+    assert requests[0]["parameters"] == "rrday,snow,tmin,tmax"
     assert requests[0]["starttime"] == "2026-08-01T00:00:00Z"
     assert total == 18
 

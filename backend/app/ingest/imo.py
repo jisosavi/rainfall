@@ -14,6 +14,11 @@ Facts verified against the live API (2026-09):
   cm. Without `snd`, the observer's snow cover `sncm` = 0 ("No snow") counts as 0 cm; partly
   or fully covered without a depth is unknown and not stored. (`snc` can contradict `sncm`
   and isn't used.) A reading at 09 UTC on D is stored under D. Reported days only.
+- Temperature is computed from the EDR hour collection (one parameter per query, at most
+  3 days per request or it answers 413): the mean from `t`, the on-the-hour reading, at
+  00–23 UTC on D (at least 20 readings); min/max from `tn`/`tx`, each the extreme of the
+  past hour (timestamp at its end), over 18 UTC on D-1 to 18 UTC on D (at least 22 hours).
+  Stations with temperature in a period get a row for every day of it.
 - The API answers 404 when a query has no data.
 """
 
@@ -36,6 +41,10 @@ ICELAND_BBOX = "-25,63,-13,67"
 MANUAL_TYPES = {"ur", "sk"}  # precipitation stations and staffed synop stations
 SYNOP_BATCH = 20
 NO_SNOW = 0  # sncm code
+HOUR_CHUNK_DAYS = 3  # the hour cube refuses longer requests (413)
+TEMP_MEAN_MIN_HOURS = 20
+TEMP_EXTREME_MIN_HOURS = 22
+TEMPERATURE_CODES = {"temp_mean": "t", "temp_min": "tn", "temp_max": "tx"}
 
 
 @dataclass
@@ -131,6 +140,59 @@ def parse_synop_snow(records: list[dict] | None, start: date, end: date) -> dict
     return result
 
 
+def parse_hourly_temperature(
+    payloads: list[dict | None], start: date, end: date, parameter: str
+) -> dict[str, dict[date, Normalized]]:
+    """EDR hour coverages -> {station id: {date: daily mean, minimum or maximum}}."""
+    code = TEMPERATURE_CODES[parameter]
+    # Mean: readings at 00–23 UTC on D. Min/max: hours ending 19 UTC on D-1 to 18 UTC on D.
+    shift = timedelta(0) if parameter == "temp_mean" else timedelta(hours=5)
+    min_hours = TEMP_MEAN_MIN_HOURS if parameter == "temp_mean" else TEMP_EXTREME_MIN_HOURS
+    hours: dict[tuple[str, date], dict[str, float]] = defaultdict(dict)
+    for payload in payloads:
+        for coverage in (payload or {}).get("coverages", []):
+            times = coverage["domain"]["axes"]["t"]["values"]
+            values = (coverage.get("ranges") or {}).get(code, {}).get("values", [])
+            for label, value in zip(times, values):
+                if value is None:
+                    continue
+                stamp = datetime.fromisoformat(label.replace("Z", "+00:00"))
+                day = (stamp + shift).date()
+                if start <= day <= end:
+                    hours[(coverage["id"], day)][label] = float(value)
+    aggregate = {"temp_mean": lambda v: sum(v) / len(v), "temp_min": min, "temp_max": max}[parameter]
+    result: dict[str, dict[date, Normalized]] = defaultdict(dict)
+    for (station_id, day), by_hour in hours.items():
+        readings = list(by_hour.values())
+        if len(readings) >= min_hours:
+            value = round(aggregate(readings), 1)
+            result[station_id][day] = Normalized(value, True, f"{value}|hourly{min(len(readings), 24)}")
+        else:
+            result[station_id][day] = Normalized(None, False, f"hourly{len(readings)}")
+    return result
+
+
+def _fetch_hour_cube(client: httpx.Client, start: date, end: date, code: str) -> list[dict | None]:
+    """Hourly values for days start..end (00–23 UTC), in chunks the API accepts."""
+    payloads = []
+    day = start
+    while day <= end:
+        chunk_end = min(day + timedelta(days=HOUR_CHUNK_DAYS - 1), end)
+        payloads.append(
+            _get(
+                client,
+                "/rodeo/collections/hour/cube",
+                {
+                    "bbox": ICELAND_BBOX,
+                    "datetime": f"{day}T00:00:00Z/{chunk_end}T23:00:00Z",
+                    "parameter-name": code,
+                },
+            )
+        )
+        day = chunk_end + timedelta(days=1)
+    return payloads
+
+
 def fetch_daily(
     client: httpx.Client,
     start: date,
@@ -139,7 +201,11 @@ def fetch_daily(
     parameter: str = "precipitation",
 ) -> list[StationSeries]:
     stations = stations if stations is not None else fetch_stations(client)
-    if parameter == "precipitation":
+    if parameter in TEMPERATURE_CODES:
+        # Min/max need the evening of the day before start.
+        payloads = _fetch_hour_cube(client, start - timedelta(days=1), end, TEMPERATURE_CODES[parameter])
+        by_station = parse_hourly_temperature(payloads, start, end, parameter)
+    elif parameter == "precipitation":
         # Labels D+1 cover our stored date D; EDR's end date is inclusive.
         payload = _get(
             client,
@@ -173,7 +239,7 @@ def fetch_daily(
         values = by_station.get(s.id)
         if not values:
             continue
-        if parameter == "precipitation":
+        if parameter != "snow_depth":
             # Every day in range: a missing row where the station has no value (yet).
             day = start
             while day <= end:

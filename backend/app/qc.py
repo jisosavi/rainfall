@@ -10,14 +10,18 @@ a flag needs every neighbour to be much lower. Without enough neighbours nothing
 For snow depth, altitude matters more than distance (a mountain station has far more snow
 than a valley 20 km away), so only neighbours within MAX_ELEVATION_DIFF are compared when
 both elevations are known (MET Norway and SMHI give them; FMI's daily data doesn't).
+Temperature is checked both ways: a value far from the median of its neighbours (within
+50 km and 300 m of altitude) is suspect, whether too warm or too cold. The limits are wide,
+minimum temperatures widest, because frost hollows and inversions are real.
 Flagged rainfall is then checked against the station's own hourly readings: if they add up
 to the daily value, the storm was real and the flag becomes `confirmed_hourly` (ranked as
 normal). Stations without hourly data (mostly manual) keep the flag.
-Hard limits for impossible values are separate (app.ingest.common.PLAUSIBLE_MAX).
+Hard limits for impossible values are separate (app.ingest.common.PLAUSIBLE_RANGE).
 """
 
 import logging
 import math
+import statistics
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -47,11 +51,16 @@ class Rule:
     factor: float  # suspect if value > factor * highest neighbour + margin
     margin: float
     max_elevation_diff: float | None = None  # metres; None = compare regardless of altitude
+    max_deviation: float | None = None  # two-sided: suspect if |value - neighbour median| > this
 
 
 RULES = {
     "precipitation": Rule(min_value=30, radius_km=50, min_neighbours=3, factor=3, margin=20),  # mm
     "snow_depth": Rule(min_value=50, radius_km=30, min_neighbours=3, factor=3, margin=50, max_elevation_diff=300),  # cm
+    # °C; min_value/factor/margin are unused for two-sided rules.
+    "temp_mean": Rule(0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300, max_deviation=10),
+    "temp_min": Rule(0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300, max_deviation=15),
+    "temp_max": Rule(0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300, max_deviation=10),
 }
 
 Position = tuple[float, float, float | None]  # lat, lon, elevation_m
@@ -68,11 +77,13 @@ def _similar_altitude(a: float | None, b: float | None, rule: Rule) -> bool:
 
 
 def find_suspects(day_values: dict[UUID, float], positions: dict[UUID, Position], rule: Rule) -> list[UUID]:
-    """Stations whose value on one day is far above all their neighbours' values."""
+    """Stations whose value on one day is far above all their neighbours' values (or, for a
+    two-sided rule, far from their median)."""
+    two_sided = rule.max_deviation is not None
     suspects = []
     lat_span = rule.radius_km / 111.0
     for station_id, value in day_values.items():
-        if value < rule.min_value or station_id not in positions:
+        if (not two_sided and value < rule.min_value) or station_id not in positions:
             continue
         lat, lon, elevation = positions[station_id]
         lon_span = lat_span / max(math.cos(math.radians(lat)), 0.1)
@@ -86,7 +97,12 @@ def find_suspects(day_values: dict[UUID, float], positions: dict[UUID, Position]
             and _similar_altitude(elevation, positions[other_id][2], rule)
             and _km(lat, lon, positions[other_id][0], positions[other_id][1]) <= rule.radius_km
         ]
-        if len(neighbours) >= rule.min_neighbours and value > rule.factor * max(neighbours) + rule.margin:
+        if len(neighbours) < rule.min_neighbours:
+            continue
+        if two_sided:
+            if abs(value - statistics.median(neighbours)) > rule.max_deviation:
+                suspects.append(station_id)
+        elif value > rule.factor * max(neighbours) + rule.margin:
             suspects.append(station_id)
     return suspects
 
