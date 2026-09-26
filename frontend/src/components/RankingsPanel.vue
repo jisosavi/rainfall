@@ -62,7 +62,7 @@ function display(s: RankedStation): string {
           </span>
         </li>
       </ol>
-      <p v-else-if="!loading" class="empty">{{ t.noRankings }}</p>
+      <p v-else-if="!loading" class="empty">{{ t.noRankings[parameter] }}</p>
       <p class="note">{{ t.rankingNote }}</p>
     </div>
   </section>

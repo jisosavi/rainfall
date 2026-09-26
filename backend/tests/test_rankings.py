@@ -73,3 +73,12 @@ def test_invalid_combinations(client):
     assert client.get("/api/rankings", params={"period": "now", "date": "2026-01-01"}).status_code == 422
     assert client.get("/api/rankings", params={"parameter": "snow_depth", "period": "month", "date": "2026-01-01"}).status_code == 422
     assert client.get("/api/rankings", params={"period": "month", "date": "2026-01-01", "country": "xx"}).status_code == 422
+
+
+def test_zero_scores_are_not_ranked(client, db):
+    summer = days(date(2026, 8, 20), 5)
+    add_station(db, "Bare", "FI", {d: 0.0 for d in summer}, parameter="snow_depth")
+    add_station(db, "Dry", "FI", {d: 0.0 for d in summer})
+    db.commit()
+    assert client.get("/api/rankings", params={"parameter": "snow_depth", "period": "now", "date": "2026-08-24"}).json()["stations"] == []
+    assert client.get("/api/rankings", params={"period": "week", "date": "2026-08-24"}).json()["stations"] == []

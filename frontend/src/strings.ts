@@ -30,7 +30,7 @@ export const t = {
   allStationsHint: 'By default only stations with data on at least 90% of the days are ranked.',
   coverage: (n: number, total: number) => `${n}/${total} days`,
   snowDaysUnit: 'days',
-  noRankings: 'No stations to rank for this period.',
+  noRankings: { precipitation: 'No rain in this period, so nothing to rank.', snow_depth: 'No snow in this period, so nothing to rank.' },
   rankingNote: 'Values far above all nearby stations (⚠) are left out.',
   listHeading: { precipitation: 'Stations by rainfall', snow_depth: 'Stations by snow depth' },
   measurement: 'Measurement',

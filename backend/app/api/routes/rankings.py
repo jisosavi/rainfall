@@ -4,7 +4,8 @@ Rainfall: totals for the ISO week, calendar month or year up to the date, or the
 last 30 days. Snow depth: the depth on the date, the deepest since 1 October, or the days
 with snow cover (>= 1 cm) since 1 October.
 
-Values flagged `suspect_spatial` (far above all neighbours, not confirmed by hourly
+Stations whose score is 0 (no rain, no snow) aren't ranked, so a dry or snow-free period
+gives an empty list rather than a list of zeros. Values flagged `suspect_spatial` (far above all neighbours, not confirmed by hourly
 readings) count as missing, so they never lift a station in a ranking. By default only
 stations with data on at least 90% of the period's days are ranked; min_coverage=0 ranks all.
 """
@@ -112,6 +113,7 @@ def get_rankings(
         query = query.where(Station.country.in_(COUNTRY_CODES[country]))
     # The depth on one day or the deepest in winter needs no coverage; totals and day counts do.
     needs_coverage = period not in ("now", "winter_max")
+    query = query.having(score > 0)
     if needs_coverage and min_coverage > 0:
         query = query.having(counted >= min_coverage * days)
     query = query.order_by(score.desc(), Station.name).limit(limit)

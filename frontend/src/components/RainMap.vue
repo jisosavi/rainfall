@@ -47,12 +47,14 @@ function buildLayers() {
   const selectedStation = props.stations.find((s) => s.id === selected)
   return [
     stationsLayer(),
+    ...(props.ranks.length ? [unreportedRanked()] : []),
     ...(selectedStation ? [selectionRing(selectedStation)] : []),
     ...(props.ranks.length ? [rankLabels()] : []),
   ]
 }
 
-// Rank numbers for the Top 15, next to each ranked station.
+// Rank numbers for the Top 15: dark digits on a white badge with a dark edge, so they read
+// against the dark map and can't be mistaken for a (white) station circle.
 function rankLabels() {
   return new TextLayer<RankedStation>({
     id: 'ranks',
@@ -60,14 +62,34 @@ function rankLabels() {
     getPosition: (d) => [d.lon, d.lat],
     getText: (d) => String(d.rank),
     getSize: 12,
-    getColor: [242, 242, 243, 255],
-    getPixelOffset: [0, -14],
+    getColor: [12, 12, 12, 255],
+    getPixelOffset: [0, -16],
     fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
     fontWeight: 700,
     background: true,
-    getBackgroundColor: [22, 22, 23, 220],
-    backgroundPadding: [3, 1],
+    getBackgroundColor: [245, 245, 246, 255],
+    getBorderColor: [12, 12, 12, 255],
+    getBorderWidth: 1,
+    backgroundPadding: [4, 1],
     characterSet: '0123456789',
+  })
+}
+
+// A ranked station without a value on the shown date (e.g. snow days this winter, but no
+// reading today) still gets a hollow ring, so its rank number marks a visible station.
+function unreportedRanked() {
+  const shown = new Set(props.stations.map((s) => s.id))
+  return new ScatterplotLayer<RankedStation>({
+    id: 'ranked-unreported',
+    data: props.ranks.filter((r) => !shown.has(r.id)),
+    getPosition: (d) => [d.lon, d.lat],
+    radiusUnits: 'pixels',
+    getRadius: 5,
+    stroked: true,
+    filled: false,
+    lineWidthUnits: 'pixels',
+    getLineWidth: 2,
+    getLineColor: WHITE,
   })
 }
 
