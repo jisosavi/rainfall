@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -47,6 +47,12 @@ class DatesResponse(BaseModel):
 
 class YearsResponse(BaseModel):
     years: list[int]
+
+
+class StatusResponse(BaseModel):
+    # When values were last fetched from the sources (by the ingestion job).
+    updated_at: datetime | None
+    sources: dict[str, datetime]
 
 
 class HistoryValue(BaseModel):

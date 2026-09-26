@@ -39,8 +39,8 @@ export const t = {
   legendTitle: { precipitation: 'Rainfall per day', snow_depth: 'Snow depth' },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
   attribution: 'Data: FMI, MET Norway, SMHI and DMI (CC BY 4.0), processed',
-  aboutButton: 'About Rainfall',
-  aboutTitle: 'About Rainfall',
+  aboutButton: 'About This App',
+  aboutTitle: 'About This App',
   aboutBody:
     'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland and the Faroe Islands on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
@@ -52,7 +52,9 @@ export const t = {
   aboutUpdatesHeading: 'Updates',
   aboutUpdatesIntro: (utcTimes: string, localTimes: string) =>
     `Data is fetched twice a day, at ${utcTimes} UTC (${localTimes} your time). Each daily value covers 06:00–06:00 UTC, so yesterday's value can first appear in the morning run.`,
-  aboutUpdatesColumns: { country: 'Country', newValues: 'New values', corrections: 'Late values and corrections' },
+  aboutUpdatesColumns: { country: 'Country', newValues: 'New values', corrections: 'Late values and corrections', lastFetched: 'Last fetched' },
+  dataUpdated: (when: string) => `Data updated ${when}`,
+  dataUpdatedHint: 'When the data was last fetched. Details in About This App.',
   aboutProjectHeading: 'Project',
   aboutDeveloperPrefix: 'Developed by',
   developerName: 'Janne Isosävi',
@@ -107,7 +109,7 @@ export const t = {
       licenceUrl: 'https://www.dmi.dk/friedata/dokumentation/terms-of-use',
       newValues: 'Yesterday, in the morning run (summed from hourly values)',
       corrections:
-        'The last 10 days are re-checked on every run. A day counts only when all 24 hourly values are in; snow depth (Denmark) comes from mostly manual stations.',
+        'The last 10 days are re-checked on every run. A day counts when at least 23 of its 24 hourly values are in; snow depth (Denmark) comes from mostly manual stations.',
     },
   ] as const,
   countryFilter: 'Country',
@@ -123,6 +125,10 @@ const mmFormat = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 1, maxi
 const parse = (iso: string) => new Date(`${iso}T12:00:00Z`)
 
 export const formatDate = (iso: string) => dateFormat.format(parse(iso))
+
+// A fetch time (ISO timestamp) in the viewer's own time zone, e.g. "26 Sept, 11:05".
+const timestampFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+export const formatTimestamp = (iso: string) => timestampFormat.format(new Date(iso))
 export const formatShortDate = (iso: string) => shortDateFormat.format(parse(iso))
 const cmFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
 

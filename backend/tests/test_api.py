@@ -124,3 +124,13 @@ def test_snow_depth_parameter(client, db, seeded):
     assert [(v["date"], v["value"]) for v in history["values"]] == [("2026-02-10", 19.0)]
     assert client.get("/api/dates", params={"parameter": "snow_depth"}).json() == {"dates": ["2026-02-10"]}
     assert client.get("/api/stations", params={"parameter": "rain"}).status_code == 422
+
+
+def test_status_reports_last_fetch(client, seeded):
+    body = client.get("/api/status").json()
+    assert set(body["sources"]) == {"fmi"}
+    assert body["updated_at"] == body["sources"]["fmi"]
+
+
+def test_status_empty_db(client):
+    assert client.get("/api/status").json() == {"updated_at": None, "sources": {}}

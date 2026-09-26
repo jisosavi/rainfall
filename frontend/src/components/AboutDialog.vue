@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Source } from '../api'
-import { t } from '../strings'
+import { formatTimestamp, t } from '../strings'
 
 // Ingestion runs (Railway cron `15 7,13 * * *`), shown in UTC and the viewer's local time.
 const RUNS_UTC: Array<[number, number]> = [
@@ -21,7 +21,7 @@ function runTimes() {
 const runs = runTimes()
 
 // Stations per source on the date shown on the map.
-defineProps<{ stationCounts: Partial<Record<Source, number>> }>()
+defineProps<{ stationCounts: Partial<Record<Source, number>>; lastFetched: Partial<Record<Source, string>> }>()
 
 const dialog = ref<HTMLDialogElement>()
 defineExpose({ open: () => dialog.value?.showModal() })
@@ -77,6 +77,7 @@ function onClick(event: MouseEvent) {
                 <th scope="col">{{ t.aboutUpdatesColumns.country }}</th>
                 <th scope="col">{{ t.aboutUpdatesColumns.newValues }}</th>
                 <th scope="col">{{ t.aboutUpdatesColumns.corrections }}</th>
+                <th scope="col">{{ t.aboutUpdatesColumns.lastFetched }}</th>
               </tr>
             </thead>
             <tbody>
@@ -84,6 +85,7 @@ function onClick(event: MouseEvent) {
                 <td>{{ d.country }}</td>
                 <td>{{ d.newValues }}</td>
                 <td>{{ d.corrections }}</td>
+                <td class="when">{{ lastFetched[d.source] ? formatTimestamp(lastFetched[d.source]!) : '–' }}</td>
               </tr>
             </tbody>
           </table>
@@ -198,6 +200,10 @@ td:first-child {
   .data-table td:last-child {
     white-space: normal;
   }
+}
+.when {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .note {
   font-size: 12px;

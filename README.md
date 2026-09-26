@@ -122,6 +122,7 @@ All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_de
 | `GET /api/stations/{id}/history?start=&end=` | `{"station_id", "start", "end", "values": [{date, precipitation_mm, has_data}]}`. Defaults to the 30 days ending at the latest date. Maximum 366 days. |
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
+| `GET /api/status` | `{"updated_at", "sources": {source: timestamp}}`: when values were last fetched. Shown as "Data updated …" in the app (the time is converted to the viewer's time zone). |
 
 `StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi` or `dmi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
 

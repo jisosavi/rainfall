@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { NotFoundError, useDates, useStations, type Parameter, type Source } from './api'
+import { NotFoundError, useDates, useStations, useStatus, type Parameter, type Source } from './api'
 import { useSelectionStore } from './stores/selection'
 import { inCountry } from './lib/countries'
-import { formatDate, t } from './strings'
+import { formatDate, formatTimestamp, t } from './strings'
 import AboutDialog from './components/AboutDialog.vue'
 import CountryFilter from './components/CountryFilter.vue'
 import DateControl from './components/DateControl.vue'
@@ -17,6 +17,7 @@ import StationPanel from './components/StationPanel.vue'
 const { date, stationId, country, parameter } = storeToRefs(useSelectionStore())
 const stations = useStations(date, parameter)
 const dates = useDates(parameter)
+const status = useStatus()
 
 const parameterOptions: Array<{ value: Parameter; label: string }> = [
   { value: 'precipitation', label: t.parameterLabel.precipitation },
@@ -77,6 +78,15 @@ function selectStation(id: string | null) {
             {{ stationRows.length ? t.stationsWithData(reporting, stationRows.length) : t.noStationsForDate }}
           </p>
         </div>
+        <button
+          v-if="status.data.value?.updated_at"
+          type="button"
+          class="updated link"
+          :title="t.dataUpdatedHint"
+          @click="about?.open()"
+        >
+          {{ t.dataUpdated(formatTimestamp(status.data.value.updated_at)) }}
+        </button>
         <div class="controls-row">
           <CountryFilter v-model="country" />
           <button type="button" class="small" :aria-pressed="showList" @click="showList = !showList">
@@ -98,7 +108,7 @@ function selectStation(id: string | null) {
       @pick-date="date = $event"
     />
 
-    <AboutDialog ref="about" :station-counts="stationCounts" />
+    <AboutDialog ref="about" :station-counts="stationCounts" :last-fetched="status.data.value?.sources ?? {}" />
   </main>
 </template>
 
@@ -150,6 +160,11 @@ h1 {
 .parameter-switch :deep(button) {
   font-size: 13px;
   padding: 5px 14px;
+}
+.updated {
+  align-self: flex-start;
+  margin-top: -6px;
+  font-size: 11px;
 }
 .controls-row {
   display: flex;

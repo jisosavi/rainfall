@@ -15,6 +15,7 @@ from app.schemas.station import (
     StationDay,
     StationHistoryResponse,
     StationsForDateResponse,
+    StatusResponse,
     YearsResponse,
 )
 
@@ -181,6 +182,16 @@ def get_available_dates(
         query = query.where(DailyValue.date.between(date(year, 1, 1), date(year, 12, 31)))
 
     return DatesResponse(dates=db.execute(query).scalars().all())
+
+
+@router.get("/status", response_model=StatusResponse)
+def get_status(db: Session = Depends(get_db)):
+    """When data was last fetched, overall and per source."""
+    rows = db.execute(
+        select(Station.source, func.max(DailyValue.fetched_at)).join(DailyValue).group_by(Station.source)
+    ).all()
+    sources = {source: fetched for source, fetched in rows if fetched}
+    return StatusResponse(updated_at=max(sources.values(), default=None), sources=sources)
 
 
 @router.get("/years", response_model=YearsResponse)

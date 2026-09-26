@@ -58,6 +58,22 @@ async function getJson<T>(path: string, params: Record<string, string | undefine
 
 const retry = (count: number, error: Error) => !(error instanceof NotFoundError) && count < 2
 
+export interface Status {
+  updated_at: string | null
+  sources: Partial<Record<Source, string>>
+}
+
+/** When the data was last fetched from the sources (refreshed every few minutes). */
+export function useStatus() {
+  return useQuery({
+    queryKey: ['status'],
+    queryFn: () => getJson<Status>('/api/status'),
+    staleTime: 5 * 60_000,
+    refetchInterval: 15 * 60_000,
+    retry,
+  })
+}
+
 export function useDates(parameter: Ref<Parameter>) {
   return useQuery({
     queryKey: computed(() => ['dates', parameter.value]),
