@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { NotFoundError, useDates, useRankings, useStations, useStatus, type Parameter, type Period, type Source, type StationDay } from './api'
+import {
+  NotFoundError,
+  isTemperature,
+  measurementOf,
+  useDates,
+  useRankings,
+  useStations,
+  useStatus,
+  type Measurement,
+  type Parameter,
+  type Period,
+  type Source,
+  type StationDay,
+  type TemperatureParameter,
+} from './api'
 import { useSelectionStore } from './stores/selection'
 import { inCountry } from './lib/countries'
 import { formatDate, formatTimestamp, t } from './strings'
@@ -20,27 +34,57 @@ const stations = useStations(date, parameter)
 const dates = useDates(parameter)
 const status = useStatus()
 
-const parameterOptions: Array<{ value: Parameter; label: string }> = [
-  { value: 'precipitation', label: t.parameterLabel.precipitation },
-  { value: 'snow_depth', label: t.parameterLabel.snow_depth },
+const measurementOptions: Array<{ value: Measurement; label: string }> = [
+  { value: 'precipitation', label: t.measurementLabel.precipitation },
+  { value: 'snow_depth', label: t.measurementLabel.snow_depth },
+  { value: 'temperature', label: t.measurementLabel.temperature },
 ]
+const temperatureOptions: Array<{ value: TemperatureParameter; label: string }> = [
+  { value: 'temp_mean', label: t.temperatureShort.temp_mean },
+  { value: 'temp_min', label: t.temperatureShort.temp_min },
+  { value: 'temp_max', label: t.temperatureShort.temp_max },
+]
+// Switching back to Temperature returns to the last chosen of mean, min and max.
+const lastTemperature = ref<TemperatureParameter>(isTemperature(parameter.value) ? parameter.value : 'temp_mean')
+const measurement = computed<Measurement>({
+  get: () => measurementOf(parameter.value),
+  set: (m) => (parameter.value = m === 'temperature' ? lastTemperature.value : m),
+})
+const temperatureKind = computed<TemperatureParameter>({
+  get: () => (isTemperature(parameter.value) ? parameter.value : lastTemperature.value),
+  set: (p) => {
+    lastTemperature.value = p
+    parameter.value = p
+  },
+})
 
 const about = ref<InstanceType<typeof AboutDialog>>()
 // Left column: map only, the station list, or the Top 15 rankings.
 type View = 'map' | 'list' | 'top'
 const view = ref<View>('map')
-const viewOptions: Array<{ value: View; label: string }> = [
-  { value: 'map', label: t.viewMap },
-  { value: 'list', label: t.viewList },
-  { value: 'top', label: t.viewTop },
-]
-const DEFAULT_PERIOD: Record<Parameter, Period> = { precipitation: 'month', snow_depth: 'now' }
-const period = ref<Period>(DEFAULT_PERIOD[parameter.value])
-watch(parameter, (p) => (period.value = DEFAULT_PERIOD[p]))
+// Temperature rankings come later, so Top 15 is offered for rainfall and snow depth only.
+const viewOptions = computed(() => [
+  { value: 'map' as View, label: t.viewMap },
+  { value: 'list' as View, label: t.viewList },
+  ...(isTemperature(parameter.value) ? [] : [{ value: 'top' as View, label: t.viewTop }]),
+])
+const defaultPeriod = (p: Parameter): Period => (p === 'snow_depth' ? 'now' : 'month')
+const period = ref<Period>(defaultPeriod(parameter.value))
+watch(parameter, (p) => {
+  period.value = defaultPeriod(p)
+  if (isTemperature(p) && view.value === 'top') view.value = 'map'
+})
 const allStations = ref(false)
 
 const shownDate = computed(() => stations.data.value?.date ?? date.value)
-const rankings = useRankings(parameter, period, shownDate, country, allStations, computed(() => view.value === 'top'))
+const rankings = useRankings(
+  parameter,
+  period,
+  shownDate,
+  country,
+  allStations,
+  computed(() => view.value === 'top' && !isTemperature(parameter.value)),
+)
 const stationRows = computed(() => {
   const all = stations.data.value?.stations ?? []
   return all.filter((s) => inCountry(country.value, s.country))
@@ -119,7 +163,16 @@ function selectStation(id: string | null) {
           <button type="button" @click="about?.open()">{{ t.aboutButton }}</button>
         </div>
 
-        <SegmentedControl v-model="parameter" :options="parameterOptions" :label="t.measurement" class="parameter-switch" />
+        <div class="switches">
+          <SegmentedControl v-model="measurement" :options="measurementOptions" :label="t.measurement" class="parameter-switch" />
+          <SegmentedControl
+            v-if="measurement === 'temperature'"
+            v-model="temperatureKind"
+            :options="temperatureOptions"
+            :label="t.temperatureKind"
+            class="kind-switch"
+          />
+        </div>
 
         <DateControl :dates="dates.data.value ?? []" :current="shownDate" @change="date = $event" />
 
@@ -215,8 +268,14 @@ h1 {
   font-size: 12px;
   color: var(--text-secondary);
 }
-.parameter-switch {
-  align-self: flex-start;
+.switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.kind-switch :deep(button) {
+  font-size: 12px;
 }
 .parameter-switch :deep(button) {
   font-size: 13px;

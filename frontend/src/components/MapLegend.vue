@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Parameter } from '../api'
 import { SCALES } from '../lib/scales'
-import { t } from '../strings'
+import { suspectLegend, t } from '../strings'
 
 defineProps<{ parameter: Parameter }>()
 </script>
@@ -9,12 +9,12 @@ defineProps<{ parameter: Parameter }>()
 <template>
   <section class="legend panel" :aria-label="t.legendTitle[parameter]">
     <h2>{{ t.legendTitle[parameter] }}</h2>
-    <ul>
+    <ul :class="{ long: SCALES[parameter].classes.length > 6 }">
       <li v-for="c in [...SCALES[parameter].classes].reverse()" :key="c.label">
         <span class="swatch" :style="{ background: c.color }" />{{ c.label }}
       </li>
       <li><span class="swatch hollow" />{{ t.noData }}</li>
-      <li><span class="swatch suspect" />⚠ {{ t.suspectLegend }}</li>
+      <li><span class="swatch suspect" />⚠ {{ suspectLegend(parameter) }}</li>
     </ul>
   </section>
 </template>
@@ -65,6 +65,12 @@ li {
   .swatch {
     width: 10px;
     height: 10px;
+  }
+  /* Ten temperature classes: two columns, read top to bottom, so the legend stays short. */
+  ul.long {
+    grid-auto-flow: column;
+    grid-template-rows: repeat(6, auto);
+    column-gap: 12px;
   }
 }
 </style>

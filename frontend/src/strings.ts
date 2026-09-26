@@ -1,9 +1,11 @@
+import type { Parameter } from './api'
+
 // All user-facing text (UK English), kept in one place so it can be translated later.
 export const t = {
   title: 'Nordic weather observations',
-  subtitle: 'Daily rainfall and snow depth at Nordic weather stations',
+  subtitle: 'Daily rainfall, snow depth and temperature at Nordic weather stations',
   loading: 'Loading…',
-  loadError: 'Could not load rainfall data. Please try again later.',
+  loadError: 'Could not load the data. Please try again later.',
   noDataYet: 'No data available yet.',
   noStationsForDate: 'No stations reported on this date.',
   previousDay: 'Previous day',
@@ -14,7 +16,13 @@ export const t = {
   viewMap: 'Map',
   viewList: 'List',
   viewTop: 'Top 15',
-  topHeading: { precipitation: 'Top 15 rainfall', snow_depth: 'Top 15 snow depth' },
+  topHeading: {
+    precipitation: 'Top 15 rainfall',
+    snow_depth: 'Top 15 snow depth',
+    temp_mean: 'Top 15 mean temperature',
+    temp_min: 'Top 15 minimum temperature',
+    temp_max: 'Top 15 maximum temperature',
+  },
   periodLabel: 'Period',
   periods: {
     week: 'Week',
@@ -30,11 +38,34 @@ export const t = {
   allStationsHint: 'By default only stations with data on at least 90% of the days are ranked.',
   coverage: (n: number, total: number) => `${n}/${total} days`,
   snowDaysUnit: 'days',
-  noRankings: { precipitation: 'No rain in this period, so nothing to rank.', snow_depth: 'No snow in this period, so nothing to rank.' },
+  noRankings: {
+    precipitation: 'No rain in this period, so nothing to rank.',
+    snow_depth: 'No snow in this period, so nothing to rank.',
+    temp_mean: 'Nothing to rank.',
+    temp_min: 'Nothing to rank.',
+    temp_max: 'Nothing to rank.',
+  },
   rankingNote: 'Values far above all nearby stations (⚠) are left out.',
-  listHeading: { precipitation: 'Stations by rainfall', snow_depth: 'Stations by snow depth' },
+  listHeading: {
+    precipitation: 'Stations by rainfall',
+    snow_depth: 'Stations by snow depth',
+    temp_mean: 'Stations by mean temperature',
+    temp_min: 'Stations by minimum temperature',
+    temp_max: 'Stations by maximum temperature',
+  },
   measurement: 'Measurement',
-  parameterLabel: { precipitation: 'Rainfall', snow_depth: 'Snow depth' },
+  parameterLabel: {
+    precipitation: 'Rainfall',
+    snow_depth: 'Snow depth',
+    temp_mean: 'Mean temperature',
+    temp_min: 'Minimum temperature',
+    temp_max: 'Maximum temperature',
+  },
+  measurementLabel: { precipitation: 'Rainfall', snow_depth: 'Snow depth', temperature: 'Temperature' },
+  temperatureKind: 'Temperature',
+  temperatureShort: { temp_mean: 'Mean', temp_min: 'Min', temp_max: 'Max' },
+  listValueHeading: { precipitation: 'Rainfall', snow_depth: 'Snow depth', temp_mean: 'Mean', temp_min: 'Min', temp_max: 'Max' },
+  topNotForTemperature: 'Temperature rankings are coming later; Top 15 covers rainfall and snow depth for now.',
   station: 'Station',
   rainfall: 'Rainfall',
   snowDepth: 'Snow depth',
@@ -42,6 +73,9 @@ export const t = {
   suspectShort: 'Unusually high',
   suspectLong: 'Unusually high compared with nearby stations that day. Shown as reported, but left out of rankings.',
   suspectLegend: 'Unusually high vs nearby',
+  suspectTempShort: 'Unusual for the area',
+  suspectTempLong: 'Much warmer or colder than nearby stations at a similar altitude that day. Shown as reported, but may be a measuring error.',
+  suspectTempLegend: 'Unusual vs nearby',
   noDataOnDate: 'No data on this date.',
   lastData: (when: string, value: string) => `Last data: ${when}, ${value}`,
   showThatDay: 'Show that day',
@@ -58,21 +92,35 @@ export const t = {
   snowCoverDays: 'Days with snow cover',
   noSnowData: 'No snow depth data from this station.',
   total: 'Total',
+  warmest: 'Highest max',
+  coldest: 'Lowest min',
+  averageMean: 'Average mean',
+  chartMean: 'Mean',
+  chartRange: 'Min–max',
+  noTemperatureData: 'No temperature data from this station.',
+  temperatureDay: (mean: string, min: string, max: string) => `mean ${mean} · ${min} to ${max}`,
   wetDays: 'Days with rain',
-  measurementNote: 'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day (Iceland: 09:00–09:00 UTC). Snow depth: measured on the morning of that date.',
-  legendTitle: { precipitation: 'Rainfall per day', snow_depth: 'Snow depth' },
+  measurementNote:
+    'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day (Iceland: 09:00–09:00 UTC). Snow depth: measured on the morning of that date. Temperature: the mean over 00:00–24:00 UTC; minimum and maximum from 18:00 UTC the day before to 18:00 UTC on that date.',
+  legendTitle: {
+    precipitation: 'Rainfall per day',
+    snow_depth: 'Snow depth',
+    temp_mean: 'Mean temperature',
+    temp_min: 'Minimum temperature',
+    temp_max: 'Maximum temperature',
+  },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
   attribution: 'Data: FMI, MET Norway, SMHI, DMI and IMO (CC BY 4.0), processed',
   aboutButton: 'About This App',
   aboutTitle: 'About This App',
   aboutBody:
-    'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands and Iceland on a map. Pick a date and a measurement, and select a station for its recent history.',
+    'Nordic weather observations shows the daily rainfall, snow depth and temperature measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands and Iceland on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
   aboutStationsNote: 'Stations: number on the date and measurement shown on the map.',
   aboutProcessingNote:
-    'The data has been processed: values are quality-filtered, aligned to the same daily period (06:00–06:00 UTC), and days without a value are marked as missing. Impossible values are dropped, and values far above all nearby stations that day are marked as unusually high.',
+    'The data has been processed: values are quality-filtered, aligned to the same daily periods (rainfall 06:00–06:00 UTC; temperature mean 00:00–24:00 UTC, minimum and maximum 18:00–18:00 UTC), and days without a value are marked as missing. Where a provider’s daily values use other periods, ours are computed from its hourly values. Impossible values are dropped; values far above all nearby stations (rain, snow), or far warmer or colder than them (temperature), are marked.',
   aboutUpdatesHeading: 'Updates',
   aboutUpdatesIntro: (utcTimes: string, localTimes: string) =>
     `Data is fetched twice a day, at ${utcTimes} UTC (${localTimes} your time). Each daily value covers 06:00–06:00 UTC, so yesterday's value can first appear in the morning run.`,
@@ -131,7 +179,7 @@ export const t = {
       url: 'https://www.dmi.dk/frie-data',
       licence: 'CC BY 4.0',
       licenceUrl: 'https://www.dmi.dk/friedata/dokumentation/terms-of-use',
-      newValues: 'Yesterday, in the morning run (summed from hourly values)',
+      newValues: 'Yesterday, in the morning run (rainfall and temperature computed from hourly values)',
       corrections:
         'The last 10 days are re-checked on every run. A day counts when at least 23 of its 24 hourly values are in; snow depth (Denmark) comes from mostly manual stations.',
     },
@@ -142,7 +190,7 @@ export const t = {
       url: 'https://api.vedur.is/weather/',
       licence: 'CC BY 4.0',
       licenceUrl: 'https://athuganir.vedur.is/disclaimer?lng=en',
-      newValues: 'Snow depth: yesterday. Rainfall: after 3–4 days (quality-checked first)',
+      newValues: 'Snow depth and temperature: yesterday. Rainfall: after 3–4 days (quality-checked first)',
       corrections:
         'The last 10 days are re-checked on every run. Rainfall covers 09:00–09:00 UTC (3 hours later than the other countries), as no hourly data is published; snow depth is read at 09:00 UTC at manual stations.',
     },
@@ -165,9 +213,17 @@ export const formatDate = (iso: string) => dateFormat.format(parse(iso))
 const timestampFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 export const formatTimestamp = (iso: string) => timestampFormat.format(new Date(iso))
 export const formatShortDate = (iso: string) => shortDateFormat.format(parse(iso))
+
+// Flag texts: rain and snow are flagged only when unusually high, temperature either way.
+export const suspectShort = (p: Parameter) => (p.startsWith('temp_') ? t.suspectTempShort : t.suspectShort)
+export const suspectLong = (p: Parameter) => (p.startsWith('temp_') ? t.suspectTempLong : t.suspectLong)
+export const suspectLegend = (p: Parameter) => (p.startsWith('temp_') ? t.suspectTempLegend : t.suspectLegend)
 const cmFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
+const celsiusFormat = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 export const formatMm = (mm: number | null) => (mm === null ? t.noData : `${mmFormat.format(mm)} mm`)
 export const formatCm = (cm: number | null) => (cm === null ? t.noData : `${cmFormat.format(cm)} cm`)
-export const formatValue = (parameter: 'precipitation' | 'snow_depth', value: number | null) =>
-  parameter === 'snow_depth' ? formatCm(value) : formatMm(value)
+// A true minus sign (−), not a hyphen, for negative temperatures.
+export const formatCelsius = (c: number | null) => (c === null ? t.noData : `${celsiusFormat.format(c).replace('-', '−')} °C`)
+export const formatValue = (parameter: Parameter, value: number | null) =>
+  parameter === 'snow_depth' ? formatCm(value) : parameter === 'precipitation' ? formatMm(value) : formatCelsius(value)

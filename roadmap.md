@@ -15,7 +15,6 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
 
 
-- [ ] Temperature UI: a Temperature measurement with Mean / Min / Max, a diverging colour scale (validated for colour blindness), and a station-panel chart with the min–max band and the mean line. The backend already serves `temp_mean`, `temp_min` and `temp_max`.
 - [ ] Temperature rankings: warmest and coldest (e.g. highest maximum, lowest minimum, warmest and coldest mean for a period).
 
 ## Later / ideas

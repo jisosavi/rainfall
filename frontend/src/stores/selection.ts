@@ -10,11 +10,17 @@ export type { CountryFilter }
 
 // Snow depth is the default view from November to February, rainfall otherwise.
 const seasonalDefault = (): Parameter => ([10, 11, 0, 1].includes(new Date().getMonth()) ? 'snow_depth' : 'precipitation')
-const SHOW: Record<string, Parameter> = { rain: 'precipitation', snow: 'snow_depth' }
-const SHOW_KEY: Record<Parameter, string> = { precipitation: 'rain', snow_depth: 'snow' }
+const SHOW: Record<string, Parameter> = {
+  rain: 'precipitation',
+  snow: 'snow_depth',
+  tmean: 'temp_mean',
+  tmin: 'temp_min',
+  tmax: 'temp_max',
+}
+const SHOW_KEY = Object.fromEntries(Object.entries(SHOW).map(([key, p]) => [p, key])) as Record<Parameter, string>
 
 /** Selected date, station, country and measurement, mirrored to the URL
- * (?date=…&station=…&country=…&show=rain|snow) so views can be shared. */
+ * (?date=…&station=…&country=…&show=rain|snow|tmean|tmin|tmax) so views can be shared. */
 export const useSelectionStore = defineStore('selection', () => {
   const params = new URLSearchParams(window.location.search)
   const initialDate = params.get('date')

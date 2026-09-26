@@ -9,7 +9,7 @@ import type { PickingInfo } from '@deck.gl/core'
 import type { Parameter, RankedStation, StationDay } from '../api'
 import { boundsFor, START_BOUNDS, type CountryFilter } from '../lib/countries'
 import { SCALES } from '../lib/scales'
-import { formatValue, t } from '../strings'
+import { formatValue, suspectShort, t } from '../strings'
 
 const props = defineProps<{
   stations: StationDay[]
@@ -38,9 +38,11 @@ const WHITE: [number, number, number, number] = [255, 255, 255, 235]
 // Status "warning" amber: a value far above all nearby stations (always paired with a text label).
 const SUSPECT: [number, number, number, number] = [250, 178, 25, 255]
 
-// Hollow (no data) first, then dry to wet, so the heaviest rainfall is drawn on top.
+// Hollow (no data) first, then low to high, so the heaviest rainfall (or the warmest
+// temperature) is drawn on top.
 function drawOrder(stations: StationDay[]): StationDay[] {
-  return [...stations].sort((a, b) => (a.value ?? -1) - (b.value ?? -1))
+  const key = (s: StationDay) => (s.has_data && s.value !== null ? s.value : -Infinity)
+  return [...stations].sort((a, b) => (key(a) === key(b) ? 0 : key(a) < key(b) ? -1 : 1))
 }
 
 function buildLayers() {
@@ -140,7 +142,7 @@ function tooltip({ object }: PickingInfo<StationDay>) {
   if (!object) return null
   const value = formatValue(props.parameter, object.has_data ? object.value : null)
   return {
-    html: `<strong>${escapeHtml(object.name)}</strong><br>${value}${object.flag === 'suspect_spatial' ? `<br>⚠ ${t.suspectShort}` : ''}`,
+    html: `<strong>${escapeHtml(object.name)}</strong><br>${value}${object.flag === 'suspect_spatial' ? `<br>⚠ ${suspectShort(props.parameter)}` : ''}`,
     className: 'map-tooltip',
     style: { backgroundColor: '', color: '', padding: '', fontSize: '' },
   }

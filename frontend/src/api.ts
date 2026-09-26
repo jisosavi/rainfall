@@ -2,7 +2,13 @@ import { computed, ref, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 
 export type Source = 'fmi' | 'met' | 'smhi' | 'dmi' | 'imo'
-export type Parameter = 'precipitation' | 'snow_depth'
+export type TemperatureParameter = 'temp_mean' | 'temp_min' | 'temp_max'
+export type Parameter = 'precipitation' | 'snow_depth' | TemperatureParameter
+/** What the measurement switch shows: temperature covers mean, minimum and maximum. */
+export type Measurement = 'precipitation' | 'snow_depth' | 'temperature'
+export const TEMPERATURES: TemperatureParameter[] = ['temp_mean', 'temp_min', 'temp_max']
+export const isTemperature = (p: Parameter): p is TemperatureParameter => p.startsWith('temp_')
+export const measurementOf = (p: Parameter): Measurement => (isTemperature(p) ? 'temperature' : p)
 
 export interface StationDay {
   id: string

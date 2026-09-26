@@ -3,15 +3,16 @@ import { computed } from 'vue'
 import type { Parameter, StationDay } from '../api'
 import { SCALES } from '../lib/scales'
 import { countryTag } from '../lib/countries'
-import { formatValue, t } from '../strings'
+import { formatValue, suspectLong, suspectShort, t } from '../strings'
 
 const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter }>()
 const emit = defineEmits<{ select: [id: string] }>()
 
-// Table view of the map: wettest first, stations without data last.
+// Table view of the map: highest first (wettest, deepest, warmest), stations without data last.
+const key = (s: StationDay) => (s.has_data && s.value !== null ? s.value : -Infinity)
 const sorted = computed(() =>
-  [...props.stations].sort(
-    (a, b) => (b.value ?? -1) - (a.value ?? -1) || a.name.localeCompare(b.name, 'fi'),
+  [...props.stations].sort((a, b) =>
+    key(a) !== key(b) ? (key(b) > key(a) ? 1 : -1) : a.name.localeCompare(b.name, 'fi'),
   ),
 )
 </script>
@@ -22,7 +23,7 @@ const sorted = computed(() =>
     <div class="scroll">
       <table>
         <thead>
-          <tr><th scope="col">{{ t.station }}</th><th scope="col" class="num">{{ t.parameterLabel[parameter] }}</th></tr>
+          <tr><th scope="col">{{ t.station }}</th><th scope="col" class="num">{{ t.listValueHeading[parameter] }}</th></tr>
         </thead>
         <tbody>
           <tr
@@ -41,7 +42,7 @@ const sorted = computed(() =>
               /><span class="name">{{ s.name }}</span><span class="tag">{{ countryTag(s.country) }}</span>
             </td>
             <td class="num">
-              <span v-if="s.flag === 'suspect_spatial'" class="suspect" :title="t.suspectLong" :aria-label="t.suspectShort">⚠ </span>{{ formatValue(parameter, s.has_data ? s.value : null) }}
+              <span v-if="s.flag === 'suspect_spatial'" class="suspect" :title="suspectLong(parameter)" :aria-label="suspectShort(parameter)">⚠ </span>{{ formatValue(parameter, s.has_data ? s.value : null) }}
             </td>
           </tr>
         </tbody>
