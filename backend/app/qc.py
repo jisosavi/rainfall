@@ -12,7 +12,8 @@ than a valley 20 km away), so only neighbours within MAX_ELEVATION_DIFF are comp
 both elevations are known (MET Norway and SMHI give them; FMI's daily data doesn't).
 Temperature is checked both ways: a value far from the median of its neighbours (within
 50 km and 300 m of altitude) is suspect, whether too warm or too cold. The limits are wide,
-minimum temperatures widest, because frost hollows are real. In cold weather (neighbour
+minimum and maximum temperatures wider than the mean, because frost hollows, and islands
+in a cold spring sea, are real. In cold weather (neighbour
 median below 0 °C) temperature inversions make valleys 15–20 °C colder than slopes a few
 kilometres away (Kilpisjärvi, Kittilä, Bjorli, Folldal in 2025–26), so the limit is then
 INVERSION_DEVIATION for all three.
@@ -58,7 +59,7 @@ class Rule:
     inversion_deviation: float | None = None  # two-sided limit when the neighbour median is below 0
 
 
-INVERSION_DEVIATION = 20.0  # °C
+INVERSION_DEVIATION = 22.0  # °C
 
 
 RULES = {
@@ -70,7 +71,7 @@ RULES = {
             0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300,
             max_deviation=deviation, inversion_deviation=INVERSION_DEVIATION,
         )
-        for parameter, deviation in (("temp_mean", 10), ("temp_min", 15), ("temp_max", 10))
+        for parameter, deviation in (("temp_mean", 10), ("temp_min", 15), ("temp_max", 15))
     },
 }
 # Bump a measurement's version when its rule changes: the next ingestion run then rechecks
@@ -78,9 +79,11 @@ RULES = {
 RULES_VERSION = {
     "precipitation": 1,
     "snow_depth": 1,
-    "temp_mean": 2,  # 2: inversion allowance, FMI station heights
-    "temp_min": 2,
-    "temp_max": 2,
+    # 2: inversion allowance, FMI station heights. 3: inversion limit 22 °C (fell tops),
+    # maximum limit 15 °C (islands in a cold spring sea, winter valleys).
+    "temp_mean": 3,
+    "temp_min": 3,
+    "temp_max": 3,
 }
 
 Position = tuple[float, float, float | None]  # lat, lon, elevation_m
