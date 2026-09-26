@@ -52,6 +52,7 @@ def test_rain_totals_coverage_and_flags(client, db):
     finland = client.get("/api/rankings", params={"period": "month", "date": "2026-09-10", "country": "fi"}).json()
     assert [s["name"] for s in finland["stations"]] == ["Real storm", "Storm"]
     assert finland["stations"][0]["rank"] == 1
+    assert finland["stations"][0]["source_station_id"] == "Real storm"  # station details for the panel
 
 
 def test_snow_rankings(client, db):

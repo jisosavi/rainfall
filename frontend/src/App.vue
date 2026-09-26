@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { NotFoundError, useDates, useRankings, useStations, useStatus, type Parameter, type Period, type Source } from './api'
+import { NotFoundError, useDates, useRankings, useStations, useStatus, type Parameter, type Period, type Source, type StationDay } from './api'
 import { useSelectionStore } from './stores/selection'
 import { inCountry } from './lib/countries'
 import { formatDate, formatTimestamp, t } from './strings'
@@ -45,7 +45,39 @@ const stationRows = computed(() => {
   const all = stations.data.value?.stations ?? []
   return all.filter((s) => inCountry(country.value, s.country))
 })
-const selectedStation = computed(() => stationRows.value.find((s) => s.id === stationId.value) ?? null)
+// A ranked station without a value on the shown date isn't in stationRows; build its panel
+// entry from the ranking so it still opens (showing "No data on this date · Last data").
+const selectedStation = computed<StationDay | null>(() => {
+  const onMap = stationRows.value.find((s) => s.id === stationId.value)
+  if (onMap) return onMap
+  const ranked = view.value === 'top' ? rankings.data.value?.stations.find((s) => s.id === stationId.value) : undefined
+  if (!ranked || !shownDate.value) return null
+  return {
+    id: ranked.id,
+    source: ranked.source,
+    source_station_id: ranked.source_station_id,
+    name: ranked.name,
+    lat: ranked.lat,
+    lon: ranked.lon,
+    country: ranked.country,
+    region: ranked.region,
+    owner: ranked.owner,
+    date: shownDate.value,
+    parameter: parameter.value,
+    value: null,
+    unit: '',
+    has_data: false,
+    flag: null,
+  }
+})
+
+// Choosing a station in the list or the Top 15 flies the map to it (map clicks don't move it).
+const flyTarget = ref<{ lon: number; lat: number; seq: number } | null>(null)
+function selectFromList(id: string) {
+  stationId.value = id
+  const s = stationRows.value.find((x) => x.id === id) ?? rankings.data.value?.stations.find((x) => x.id === id)
+  if (s) flyTarget.value = { lon: s.lon, lat: s.lat, seq: (flyTarget.value?.seq ?? 0) + 1 }
+}
 const reporting = computed(() => stationRows.value.filter((s) => s.has_data).length)
 // Per source, on the shown date and ignoring the country filter (for the About dialog).
 const stationCounts = computed(() => {
@@ -73,6 +105,7 @@ function selectStation(id: string | null) {
       :parameter="parameter"
       :focus="country"
       :ranks="view === 'top' ? (rankings.data.value?.stations ?? []) : []"
+      :fly-to="flyTarget"
       @select="selectStation"
     />
 
@@ -113,7 +146,7 @@ function selectStation(id: string | null) {
         </div>
       </header>
 
-      <StationList v-if="view === 'list'" :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectStation" />
+      <StationList v-if="view === 'list'" :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectFromList" />
       <RankingsPanel
         v-else-if="view === 'top'"
         v-model:period="period"
@@ -122,7 +155,7 @@ function selectStation(id: string | null) {
         :rankings="rankings.data.value"
         :loading="rankings.isFetching.value"
         :selected-id="stationId"
-        @select="selectStation"
+        @select="selectFromList"
       />
       <MapLegend class="legend-position" :parameter="parameter" />
     </div>

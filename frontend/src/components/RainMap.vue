@@ -17,6 +17,7 @@ const props = defineProps<{
   parameter: Parameter
   focus: CountryFilter
   ranks: RankedStation[] // Top 15: rank numbers next to these stations
+  flyTo: { lon: number; lat: number; seq: number } | null // a station chosen in a list
 }>()
 const emit = defineEmits<{ select: [id: string | null] }>()
 
@@ -174,6 +175,28 @@ onMounted(() => {
   })
   map.addControl(overlay)
 })
+
+// A station chosen in the list or the Top 15: centre it in the area left free by the
+// panels, zoomed in to regional level (or keep a closer zoom).
+const STATION_ZOOM = 7
+function panelPadding() {
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    return { top: 60, bottom: Math.round(window.innerHeight * 0.6), left: 16, right: 16 }
+  }
+  return { top: 40, bottom: 40, left: 392, right: 372 }
+}
+watch(
+  () => props.flyTo?.seq,
+  () => {
+    if (!map || !props.flyTo) return
+    map.flyTo({
+      center: [props.flyTo.lon, props.flyTo.lat],
+      zoom: Math.max(map.getZoom(), STATION_ZOOM),
+      padding: panelPadding(),
+      duration: 1200,
+    })
+  },
+)
 
 // Choosing a country zooms the map to it; "All" returns to the start view.
 watch(

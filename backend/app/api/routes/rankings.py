@@ -35,11 +35,14 @@ COUNTRY_CODES = {"fi": ["FI"], "no": ["NO", "SJ"], "se": ["SE"], "dk": ["DK"], "
 class RankedStation(BaseModel):
     rank: int
     id: str
+    source_station_id: str
     name: str
     country: str
     source: str
     lat: float
     lon: float
+    region: str | None = None
+    owner: str | None = None
     value: float
     days_with_data: int
     days: int  # days in the period
@@ -122,11 +125,14 @@ def get_rankings(
         RankedStation(
             rank=rank,
             id=str(station.id),
+            source_station_id=station.source_station_id,
             name=station.name,
             country=station.country,
             source=station.source,
             lat=station.lat,
             lon=station.lon,
+            region=station.region,
+            owner=station.owner,
             value=round(float(value or 0), 1),
             days_with_data=n,
             days=days,

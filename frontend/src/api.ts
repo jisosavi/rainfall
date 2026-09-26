@@ -82,11 +82,14 @@ export type Period = RainPeriod | SnowPeriod
 export interface RankedStation {
   rank: number
   id: string
+  source_station_id: string
   name: string
   country: string
   source: Source
   lat: number
   lon: number
+  region: string | null
+  owner: string | null
   value: number
   days_with_data: number
   days: number

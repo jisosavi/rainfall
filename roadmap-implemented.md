@@ -4,6 +4,7 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
+| 2026-09-26 15:36 | Choosing a station in the list or the Top 15 flies the map to it (regional zoom, centred between the panels). Ranked stations without a value on the shown date open a panel with "No data on this date · Last data". | Fly to stations chosen in lists |
 | 2026-09-26 15:33 | Rankings tuned: rank numbers as dark-on-white badges; stations scoring 0 aren't ranked (a dry or snow-free period says so); ranked stations without a value on the shown date get a hollow ring. | Tune Top 15 rankings |
 | 2026-09-26 15:24 | Top 15 rankings: Map / List / Top 15 switch in the left column. Rainfall totals for Week, Month, Year and Last 30 days; snow depth Now, deepest this winter and snow days this winter; for the selected country and date. Only stations with data on ≥ 90% of days by default (switch to include all), coverage shown per row; suspect values excluded; rank numbers on the map. `GET /api/rankings`. | Add Top 15 rankings |
 | 2026-09-26 11:47 | Icelandic rainfall stations show as hollow "no data" circles on days without a value (migration 0007 filled in stored history). Station panel: for a measurement without data on the shown date, "Last data: <date>, <value> · Show that day" (`GET /api/stations/{id}/last-data`). | Show no-data days and last data for stations |
