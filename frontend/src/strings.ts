@@ -35,14 +35,14 @@ export const t = {
   noSnowData: 'No snow depth data from this station.',
   total: 'Total',
   wetDays: 'Days with rain',
-  measurementNote: 'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day. Snow depth: measured on the morning of that date.',
+  measurementNote: 'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day (Iceland: 09:00–09:00 UTC). Snow depth: measured on the morning of that date.',
   legendTitle: { precipitation: 'Rainfall per day', snow_depth: 'Snow depth' },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
-  attribution: 'Data: FMI, MET Norway, SMHI and DMI (CC BY 4.0), processed',
+  attribution: 'Data: FMI, MET Norway, SMHI, DMI and IMO (CC BY 4.0), processed',
   aboutButton: 'About This App',
   aboutTitle: 'About This App',
   aboutBody:
-    'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland and the Faroe Islands on a map. Pick a date and a measurement, and select a station for its recent history.',
+    'Nordic weather observations shows the daily rainfall and snow depth measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands and Iceland on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
@@ -111,10 +111,21 @@ export const t = {
       corrections:
         'The last 10 days are re-checked on every run. A day counts when at least 23 of its 24 hourly values are in; snow depth (Denmark) comes from mostly manual stations.',
     },
+    {
+      source: 'imo',
+      country: 'Iceland',
+      provider: 'Icelandic Meteorological Office (Veðurstofa Íslands)',
+      url: 'https://api.vedur.is/weather/',
+      licence: 'CC BY 4.0',
+      licenceUrl: 'https://athuganir.vedur.is/disclaimer?lng=en',
+      newValues: 'Snow depth: yesterday. Rainfall: after 3–4 days (quality-checked first)',
+      corrections:
+        'The last 10 days are re-checked on every run. Rainfall covers 09:00–09:00 UTC (3 hours later than the other countries), as no hourly data is published; snow depth is read at 09:00 UTC at manual stations.',
+    },
   ] as const,
   countryFilter: 'Country',
   countryAll: 'All',
-  sourceName: { fmi: 'FMI', met: 'MET Norway', smhi: 'SMHI', dmi: 'DMI' },
+  sourceName: { fmi: 'FMI', met: 'MET Norway', smhi: 'SMHI', dmi: 'DMI', imo: 'IMO' },
 }
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })

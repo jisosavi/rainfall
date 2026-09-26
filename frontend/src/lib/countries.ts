@@ -1,6 +1,6 @@
 // Countries in the filter: the station country codes each covers, a short tag, and the map
 // view to zoom to when it's chosen. Svalbard and Jan Mayen (SJ) count as Norway.
-export type CountryFilter = 'all' | 'fi' | 'no' | 'se' | 'dk' | 'gl' | 'fo'
+export type CountryFilter = 'all' | 'fi' | 'no' | 'se' | 'dk' | 'gl' | 'fo' | 'is'
 
 type Bounds = [[number, number], [number, number]]
 
@@ -11,7 +11,7 @@ export interface Country {
   bounds: Bounds
 }
 
-// Finland, Sweden, mainland Norway and Denmark; Svalbard, Greenland etc. are one zoom-out away.
+// Finland, Sweden, mainland Norway and Denmark; Svalbard, Greenland, Iceland etc. are one zoom-out away.
 export const START_BOUNDS: Bounds = [
   [4.5, 54.4],
   [31.6, 71.3],
@@ -24,6 +24,7 @@ export const COUNTRIES: Country[] = [
   { key: 'dk', label: 'Denmark', codes: ['DK'], bounds: [[7.9, 54.5], [15.3, 57.8]] },
   { key: 'gl', label: 'Greenland', codes: ['GL'], bounds: [[-72.0, 59.5], [-17.0, 78.0]] }, // where its stations are
   { key: 'fo', label: 'Faroe Islands', codes: ['FO'], bounds: [[-7.8, 61.3], [-6.2, 62.45]] },
+  { key: 'is', label: 'Iceland', codes: ['IS'], bounds: [[-24.6, 63.2], [-13.4, 66.6]] },
 ]
 
 export const COUNTRY_KEYS: CountryFilter[] = ['all', ...COUNTRIES.map((c) => c.key)]

@@ -21,7 +21,8 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Monitoring: get alerted when the ingestion job fails or data stops arriving, e.g. a check that the latest date is at most 2 days old
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
 
-- [ ] Iceland (IMO). Decided 2026-09-25: rainfall from automatic stations only (hourly values summed 06–06 UTC); manual 09 UTC stations used for snow depth only. Add it to the country filter (zooms to Iceland).
+
+- [ ] Temperature: analyse whether daily temperature (at least mean, minimum and maximum) can be added for every country. Check per source what exists and how the day is defined (FMI daily `tday`/`tmin`/`tmax`; Frost `mean(air_temperature P1D)` etc.; SMHI parameters 2/19/20; DMI `mean_temp`/`min_temp`/`max_temp`; IMO daily `t`/`tnn`/`txx`), whether a common day window is possible, and how it fits the UI (third measurement in the switch, own colour scale, neighbour check).
 
 ## Later / ideas
 

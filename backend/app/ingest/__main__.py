@@ -1,4 +1,4 @@
-"""Run ingestion: `python -m app.ingest [--source fmi|met|smhi|dmi|all] [--start YYYY-MM-DD] [--end YYYY-MM-DD]`.
+"""Run ingestion: `python -m app.ingest [--source fmi|met|smhi|dmi|imo|all] [--start YYYY-MM-DD] [--end YYYY-MM-DD]`.
 
 Without dates, each source backfills from INGEST_START_DATE if it has no data yet,
 otherwise re-fetches its last INGEST_REFETCH_DAYS days (sources revise recent values).
@@ -21,14 +21,14 @@ import httpx
 
 from app.config import get_settings
 from app.db.session import SessionLocal
-from app.ingest import dmi, fmi, met, smhi
+from app.ingest import dmi, fmi, imo, met, smhi
 from app.db.models import PRECIPITATION, SNOW_DEPTH
 from app.qc import confirm_with_hourly, flag_spatial_outliers
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
 
-ALL_SOURCES = ["fmi", "met", "smhi", "dmi"]
+ALL_SOURCES = ["fmi", "met", "smhi", "dmi", "imo"]
 # Measurement types each source provides.
 SOURCE_PARAMETERS = {source: (PRECIPITATION, SNOW_DEPTH) for source in ALL_SOURCES}
 
@@ -122,6 +122,8 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
                 return met.fetch_hourly_precipitation(met_client, station_id, day) if settings.frost_client_id else []
             if source == "dmi":
                 return dmi.fetch_hourly_precipitation(dmi_client, station_id, day)
+            if source == "imo":
+                return []  # IMO publishes no hourly rainfall
             return smhi.fetch_hourly_precipitation(smhi_client, station_id, day, cache=smhi_cache)
 
         confirm_with_hourly(session, start, end, fetch)
@@ -139,6 +141,14 @@ def _ingest(session, source: str, start: date, end: date, settings, archive_refr
                 logger.info("met %s: %d stations", parameter, len(stations))
                 fetch = lambda a, b, stations=stations, parameter=parameter: met.fetch_daily(client, a, b, stations, parameter)
                 total += run_ingest(session, fetch, start, end, f"met {parameter}")
+        return total
+    if source == "imo":
+        with imo.make_client() as client:
+            stations = imo.fetch_stations(client)
+            logger.info("imo: %d stations", len(stations))
+            for parameter in SOURCE_PARAMETERS[source]:
+                fetch = lambda a, b, parameter=parameter: imo.fetch_daily(client, a, b, stations, parameter)
+                total += run_ingest(session, fetch, start, end, f"imo {parameter}")
         return total
     if source == "dmi":
         with dmi.make_client() as client:

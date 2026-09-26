@@ -4,6 +4,7 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
+| 2026-09-26 11:29 | Iceland (IMO), from 2025: rainfall from EDR daily `r09` (09–09 UTC, stored one day earlier; the only exception to 06–06 UTC, stated in the app; arrives 3–4 days late), about 45 stations; snow depth from manual stations' 09 UTC readings, about 46 stations. Iceland in the country filter. Roadmap: temperature analysis. | Add IMO data for Iceland |
 | 2026-09-26 11:21 | "Data updated …" timestamp in the main view (links to the About popup), a Last fetched column per source in the About popup, `GET /api/status`. About button renamed to "About This App". The date picker's own Today button works. | Show when data was last fetched; Date picker: make the built-in Today button work |
 | 2026-09-25 16:04 | Denmark, Greenland and the Faroe Islands (DMI, about 124 rainfall stations with data, 85 Danish snow stations), from 2025. Rainfall summed from hourly values 06–06 UTC (DMI's own daily totals use other windows and aren't reliably labelled); verified against Swedish neighbours across Øresund. Country filter is now a drop-down that zooms the map to the chosen country; tags by station country (DK, GL, FO). | Add DMI data for Denmark, Greenland and the Faroe Islands |
 | 2026-09-25 15:47 | `scripts/check_docs.py`: checks before pushing that README and roadmaps match the code (settings, endpoints, migrations, sources, command options, cron schedule, implemented log, links). | Add docs check script |

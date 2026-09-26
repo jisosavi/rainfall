@@ -112,7 +112,7 @@ def check_sources(report: Report, readme: str) -> None:
         report.fail("couldn't find ALL_SOURCES in backend/app/ingest/__main__.py")
     strings = read(FRONTEND / "src/strings.ts")
     about_sources = set(re.findall(r"source:\s*'(\w+)'", strings))
-    headings = {"fmi": "FMI", "met": "MET Norway", "smhi": "SMHI", "dmi": "DMI"}
+    headings = {"fmi": "FMI", "met": "MET Norway", "smhi": "SMHI", "dmi": "DMI", "imo": "IMO"}
     for source in sources:
         problems = []
         if not (BACKEND / f"app/ingest/{source}.py").exists():

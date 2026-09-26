@@ -1,8 +1,8 @@
 # Nordic weather observations
 
-Daily rainfall and snow depth at weather stations in Finland, Norway, Sweden, Denmark, Greenland and the Faroe Islands on a map, based on open data from FMI, MET Norway, SMHI and DMI.
+Daily rainfall and snow depth at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands and Iceland on a map, based on open data from FMI, MET Norway, SMHI, DMI and IMO.
 
-- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI and DMI data twice a day.
+- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI, DMI and IMO data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
 
@@ -16,7 +16,7 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 backend/
   app/api/routes/   HTTP endpoints
   app/db/           SQLAlchemy models and session
-  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), service.py (shared)
+  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), imo.py (Iceland), service.py (shared)
   app/qc.py         neighbour check and hourly confirmation
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
@@ -40,7 +40,7 @@ cp .env.example .env        # then edit DATABASE_URL
 pytest                      # in-memory SQLite, no database needed
 alembic upgrade head
 uvicorn app.main:app --reload
-python -m app.ingest        # load data; --source fmi|met|smhi|dmi|all (default all), optional --start/--end YYYY-MM-DD
+python -m app.ingest        # load data; --source fmi|met|smhi|dmi|imo|all (default all), optional --start/--end YYYY-MM-DD
 ```
 
 After a model change: `alembic revision --autogenerate -m "..."`. Review the generated file before committing it.
@@ -124,7 +124,7 @@ All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_de
 | `GET /api/years` | `{"years"}`, ascending |
 | `GET /api/status` | `{"updated_at", "sources": {source: timestamp}}`: when values were last fetched. Shown as "Data updated …" in the app (the time is converted to the viewer's time zone). |
 
-`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi` or `dmi`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
+`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi`, `dmi` or `imo`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands, `IS`), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
@@ -132,7 +132,7 @@ All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_de
 
 Values are stored in `daily_values`, one row per station, measurement type (`parameter`) and date.
 
-- **Rainfall** (`precipitation`, mm): every stored date D means the same 24 hours in every country, **06 UTC on D to 06 UTC on D+1**.
+- **Rainfall** (`precipitation`, mm): every stored date D means the same 24 hours in every country, **06 UTC on D to 06 UTC on D+1**, except Iceland (09–09 UTC, see below).
 - **Snow depth** (`snow_depth`, cm): a reading on the morning of D (06 UTC in Finland, Norway and Sweden). It's a snapshot, not a total, so no date shift is ever needed, and readings a few hours apart (e.g. Iceland's 09 UTC) are comparable. Many Norwegian and Swedish stations report snow irregularly or only in winter, so for those only reported days are stored; a station is shown on the snow map on the days it measured.
 
 ### FMI (Finland)
@@ -188,6 +188,15 @@ These were verified against the live API on 2026-09-25.
 - **Snow depth:** daily `snow_depth` (cm) from 06 UTC on D, stored under D. Denmark only (about 92 stations, mostly manual); Greenland and the Faroe Islands have none in this data. Reported days only.
 - **Stations:** about 137 with rainfall (113 Denmark, 20 Greenland, 4 Faroe Islands), of which about 118 have hourly data. Owner (DMI, Forsvaret, Mittafik/Grønlandske lufthavne, harbours…) and height come from the station list. Greenland's manual stations report no recent data.
 
+### IMO (Iceland)
+
+These were verified against the live API on 2026-09-26.
+
+- **Source:** Veðurstofa Íslands, `https://api.vedur.is/weather`. No registration or key; licence CC BY 4.0 ([terms](https://athuganir.vedur.is/disclaimer?lng=en)).
+- **Rainfall — the one exception to 06–06 UTC:** the API publishes no hourly rainfall (the hourly `r` is always empty), so it can't be summed over our day. The only daily rainfall is `r09` in the EDR day collection: the 24 h total from **09 UTC on D-1 to 09 UTC on D**, labelled D (it equals the manual stations' own 09 UTC readings on D). It's stored under **D-1**, whose 06–06 UTC day it overlaps by 21 of 24 hours. The app states the 3-hour offset. About 45 stations over 2025–2026, about 8 on a typical recent day; reported days only. Values are quality-checked before publication and arrive **3–4 days late**; the daily re-fetch of the last 10 days picks them up. No hourly confirmation is possible, so flagged Icelandic values stay flagged.
+- **Snow depth:** manual stations' 09 UTC readings (types `ur`, `sk`), `snd` in cm, stored under D. Without `snd`, the observer's snow cover `sncm` = 0 ("No snow") counts as 0 cm; partly or fully covered without a depth isn't stored. (`snc` can contradict `sncm` and isn't used.)
+- **Stations:** 343 active with owner (stray leading commas removed) and elevation. Names can repeat (e.g. two "Reykjavík" stations with different ids).
+
 ### Plausibility limits (all sources)
 
 Values above **300 mm of rain per day** or **600 cm of snow** are stored as missing, whatever the source's quality flag says; the original value stays in `raw_status` with `|implausible`. Both limits are well above Nordic records. This caught SMHI's Söråker station (Sundsvalls kommun), whose feed reported 17,280 mm a day with quality `Y` in 2026. Migration `0005` applied the rule to already stored rows.
@@ -207,7 +216,7 @@ Comparing with the highest neighbour protects real local downpours (e.g. 114 mm 
 
 ### Licences
 
-FMI, MET Norway, SMHI and DMI open data are all CC BY 4.0 (MET Norway also under NLOD 2.0). All four are credited in the map attribution and in the About dialog. Because we process the data (quality filtering, date alignment, missing-day rows), the About dialog says so, as SMHI's terms require.
+FMI, MET Norway, SMHI, DMI and IMO open data are all CC BY 4.0 (MET Norway also under NLOD 2.0). All five are credited in the map attribution and in the About dialog. Because we process the data (quality filtering, date alignment, missing-day rows), the About dialog says so, as SMHI's terms require.
 
 ## Licence
 
@@ -215,4 +224,4 @@ Copyright © 2026 Janne Isosävi
 
 The code is licensed under the [GNU General Public License v3.0 or later](LICENSE). You may use, change and share it, but versions you distribute must stay under the same licence and include their source code.
 
-The rainfall data comes from the Finnish Meteorological Institute, MET Norway, SMHI and DMI and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.
+The rainfall data comes from the Finnish Meteorological Institute, MET Norway, SMHI, DMI and the Icelandic Meteorological Office and is licensed separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credit them when you use it.
