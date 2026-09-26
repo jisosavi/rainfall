@@ -63,11 +63,12 @@ const about = ref<InstanceType<typeof AboutDialog>>()
 // Left column: map only, the station list, or the Top 15 rankings.
 type View = 'map' | 'list' | 'top'
 const view = ref<View>('map')
-const viewOptions: Array<{ value: View; label: string }> = [
+// For temperature the rankings button names the shown kind ("Top mean"), not "Top 15".
+const viewOptions = computed<Array<{ value: View; label: string }>>(() => [
   { value: 'map', label: t.viewMap },
   { value: 'list', label: t.viewList },
-  { value: 'top', label: t.viewTop },
-]
+  { value: 'top', label: isTemperature(parameter.value) ? t.viewTopTemperature[parameter.value] : t.viewTop },
+])
 // Rainfall: this month's totals. Snow depth and temperature: the shown day.
 const defaultPeriod = (p: Parameter): Period => (p === 'precipitation' ? 'month' : 'now')
 const period = ref<Period>(defaultPeriod(parameter.value))

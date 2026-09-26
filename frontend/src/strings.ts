@@ -16,6 +16,7 @@ export const t = {
   viewMap: 'Map',
   viewList: 'List',
   viewTop: 'Top 15',
+  viewTopTemperature: { temp_mean: 'Top mean', temp_min: 'Top min', temp_max: 'Top max' },
   topHeading: {
     precipitation: 'Top 15 rainfall',
     snow_depth: 'Top 15 snow depth',
