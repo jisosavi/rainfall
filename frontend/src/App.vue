@@ -10,6 +10,7 @@ import {
   useStations,
   useStatus,
   type Measurement,
+  type Order,
   type Parameter,
   type Period,
   type Source,
@@ -62,18 +63,20 @@ const about = ref<InstanceType<typeof AboutDialog>>()
 // Left column: map only, the station list, or the Top 15 rankings.
 type View = 'map' | 'list' | 'top'
 const view = ref<View>('map')
-// Temperature rankings come later, so Top 15 is offered for rainfall and snow depth only.
-const viewOptions = computed(() => [
-  { value: 'map' as View, label: t.viewMap },
-  { value: 'list' as View, label: t.viewList },
-  ...(isTemperature(parameter.value) ? [] : [{ value: 'top' as View, label: t.viewTop }]),
-])
-const defaultPeriod = (p: Parameter): Period => (p === 'snow_depth' ? 'now' : 'month')
+const viewOptions: Array<{ value: View; label: string }> = [
+  { value: 'map', label: t.viewMap },
+  { value: 'list', label: t.viewList },
+  { value: 'top', label: t.viewTop },
+]
+// Rainfall: this month's totals. Snow depth and temperature: the shown day.
+const defaultPeriod = (p: Parameter): Period => (p === 'precipitation' ? 'month' : 'now')
 const period = ref<Period>(defaultPeriod(parameter.value))
-watch(parameter, (p) => {
-  period.value = defaultPeriod(p)
-  if (isTemperature(p) && view.value === 'top') view.value = 'map'
-})
+// Warmest first in summer (April–September), coldest first in winter.
+const order = ref<Order>([3, 4, 5, 6, 7, 8].includes(new Date().getMonth()) ? 'warmest' : 'coldest')
+watch(
+  () => measurementOf(parameter.value),
+  () => (period.value = defaultPeriod(parameter.value)),
+)
 const allStations = ref(false)
 
 const shownDate = computed(() => stations.data.value?.date ?? date.value)
@@ -83,7 +86,8 @@ const rankings = useRankings(
   shownDate,
   country,
   allStations,
-  computed(() => view.value === 'top' && !isTemperature(parameter.value)),
+  order,
+  computed(() => view.value === 'top'),
 )
 const stationRows = computed(() => {
   const all = stations.data.value?.stations ?? []
@@ -106,6 +110,7 @@ const selectedStation = computed<StationDay | null>(() => {
     country: ranked.country,
     region: ranked.region,
     owner: ranked.owner,
+    elevation_m: null,
     date: shownDate.value,
     parameter: parameter.value,
     value: null,
@@ -204,6 +209,7 @@ function selectStation(id: string | null) {
         v-else-if="view === 'top'"
         v-model:period="period"
         v-model:all-stations="allStations"
+        v-model:order="order"
         :parameter="parameter"
         :rankings="rankings.data.value"
         :loading="rankings.isFetching.value"

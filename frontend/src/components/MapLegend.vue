@@ -37,6 +37,12 @@ ul {
   gap: 4px;
   font-size: 12px;
 }
+/* Ten temperature classes: two columns, read top to bottom, so the legend stays short. */
+ul.long {
+  grid-auto-flow: column;
+  grid-template-rows: repeat(6, auto);
+  column-gap: 14px;
+}
 li {
   display: flex;
   align-items: center;
@@ -65,12 +71,6 @@ li {
   .swatch {
     width: 10px;
     height: 10px;
-  }
-  /* Ten temperature classes: two columns, read top to bottom, so the legend stays short. */
-  ul.long {
-    grid-auto-flow: column;
-    grid-template-rows: repeat(6, auto);
-    column-gap: 12px;
   }
 }
 </style>

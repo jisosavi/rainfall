@@ -145,6 +145,31 @@ def _get_wfs(client: httpx.Client, params: dict, retries: int = 3) -> bytes:
 
 
 HOURLY_QUERY = "fmi::observations::weather::hourly::timevaluepair"
+# The WFS gives no station heights; FMI's SmartMet timeseries service does.
+TIMESERIES_URL = "https://opendata.fmi.fi/timeseries"
+
+
+def fetch_elevations(client: httpx.Client) -> dict[str, float]:
+    """fmisid -> station height in metres, for FMI's weather stations (keyword synop_fi)."""
+    response = client.get(
+        TIMESERIES_URL,
+        params={
+            "producer": "opendata",
+            "keyword": "synop_fi",
+            "param": "fmisid,elevation",
+            "format": "json",
+            "starttime": "-1h",
+            "timestep": "60",
+        },
+    )
+    response.raise_for_status()
+    return {str(row["fmisid"]): float(row["elevation"]) for row in response.json() if row.get("fmisid") and row.get("elevation") is not None}
+
+
+def with_elevations(series: list[StationSeries], elevations: dict[str, float]) -> list[StationSeries]:
+    for s in series:
+        s.elevation_m = elevations.get(s.source_station_id, s.elevation_m)
+    return series
 
 
 def fetch_hourly_precipitation(client: httpx.Client, fmisid: str, day: date) -> list[float]:

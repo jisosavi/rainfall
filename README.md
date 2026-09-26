@@ -112,7 +112,7 @@ If the site moves to a new path, change `VITE_BASE`. If it moves to a new domain
 
 ## API
 
-All endpoints take `parameter=precipitation` (default, mm), `parameter=snow_depth` (cm) or a temperature, `temp_mean`, `temp_min` or `temp_max` (°C). Rankings don't take temperatures yet (422).
+All endpoints take `parameter=precipitation` (default, mm), `parameter=snow_depth` (cm) or a temperature, `temp_mean`, `temp_min` or `temp_max` (°C).
 
 | Endpoint | Returns |
 |---|---|
@@ -124,10 +124,10 @@ All endpoints take `parameter=precipitation` (default, mm), `parameter=snow_dept
 | `GET /api/stations/{id}/last-data?parameter=&before=` | `{"date", "value", "unit"}`: the station's most recent day with a value up to `before` (null if none). The station panel uses it for "Last data: … · Show that day". |
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
-| `GET /api/rankings?period=&date=&parameter=&country=&limit=15&min_coverage=0.9` | Top N stations for a period ending on `date`. Rainfall periods: `week` (ISO week to date), `month`, `year`, `last30` (totals). Snow periods: `now` (depth on the date), `winter_max` (deepest since 1 October), `winter_days` (days with ≥ 1 cm since 1 October). Stations scoring 0 (no rain or snow) aren't listed. Values flagged `suspect_spatial` count as missing. Totals and day counts need data on `min_coverage` of the period's days (`0` ranks all). `country`: `fi`, `no` (incl. Svalbard), `se`, `dk`, `gl`, `fo`, `is`. |
+| `GET /api/rankings?period=&date=&parameter=&country=&limit=15&min_coverage=0.9&order=` | Top N stations for a period ending on `date`. Rainfall periods: `week` (ISO week to date), `month`, `year`, `last30` (totals). Snow periods: `now` (depth on the date), `winter_max` (deepest since 1 October), `winter_days` (days with ≥ 1 cm since 1 October). Temperature periods: `now`, `week`, `month`, `year`, `last30` with `order=warmest` (default) or `coldest`: minimum and maximum rank by the period's extreme (e.g. the coldest night), the mean by the period's average (with the coverage rule). Extremes carry `on_date`, the day they happened (also for `winter_max`). Rainfall and snow stations scoring 0 aren't listed. Values flagged `suspect_spatial` count as missing. Totals and day counts need data on `min_coverage` of the period's days (`0` ranks all). `country`: `fi`, `no` (incl. Svalbard), `se`, `dk`, `gl`, `fo`, `is`. |
 | `GET /api/status` | `{"updated_at", "sources": {source: timestamp}}`: when values were last fetched. Shown as "Data updated …" in the app (the time is converted to the viewer's time zone). |
 
-`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi`, `dmi` or `imo`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands, `IS`), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
+`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi`, `dmi` or `imo`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands, `IS`), `region`, `owner` (organisation running the station, when known), `elevation_m` (station height above sea level, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
@@ -218,12 +218,14 @@ After every ingestion, `app/qc.py` compares unusually high values with the same 
 |---|---|---|---|---|
 | Rainfall | 30 mm | within 50 km | > 3 × highest neighbour + 20 mm | 3 neighbours with data |
 | Snow depth | 50 cm | within 30 km **and ±300 m altitude** | > 3 × highest neighbour + 50 cm | 3 neighbours with data |
-| Temperature mean / max | every value | within 50 km **and ±300 m altitude** | more than 10 °C above **or below** the neighbours' median | 3 neighbours with data |
-| Temperature min | every value | within 50 km **and ±300 m altitude** | more than 15 °C above or below the median (frost hollows are real) | 3 neighbours with data |
+| Temperature mean / max | every value | within 50 km **and ±300 m altitude** | more than 10 °C above **or below** the neighbours' median; **20 °C** when that median is below 0 °C | 3 neighbours with data |
+| Temperature min | every value | within 50 km **and ±300 m altitude** | more than 15 °C above or below the median (frost hollows are real); **20 °C** below 0 °C | 3 neighbours with data |
+
+The wider limit in cold weather allows for temperature inversions: in the 2025–26 winter, valley stations such as Kilpisjärvi village, Kittilä, Bjorli and Folldal were 15–20 °C colder than stations on nearby slopes, and Finnish fell-top stations (Luosto, Pyhätunturi, Sammaltunturi) as much warmer than the valleys, all genuine. Faults stay flagged, e.g. a road station's −39.9 °C minimum in July, or the geothermal site Ölkelduháls reading 20 °C above its neighbours in February. When a measurement's rules change, `app.qc.RULES_VERSION` is bumped and the next run rechecks that measurement's whole history once; the table `qc_state` (migration `0009`) records the version each was checked with.
 
 Flagged **rainfall** is then checked against the station's own hourly readings (FMI `PRA_PT1H_ACC`, Frost `sum(precipitation_amount PT1H)`, SMHI parameter 7, DMI hourly `acc_precip`). If they add up to the daily value (within 5 mm or 20%), the storm was real: the flag becomes `confirmed_hourly`, the value is ranked as normal, and the panel notes it. Stations without hourly data (mostly manual) keep the flag. On 2025–2026 data this confirmed 5 of 17 flags, e.g. Nurmes Valtimo 44 mm with 37 mm in one hour; Torpshammar A's 76 mm stayed flagged, its hours adding up to only 40 mm.
 
-Comparing with the highest neighbour protects real local downpours (e.g. 114 mm in Multia, July 2026, is not flagged). The altitude window keeps mountain stations from being compared with valleys; altitude (`stations.elevation_m`) comes from MET Norway and SMHI, FMI's daily data has none. On 2025–2026 data it flags about 17 rainfall and 90 snow values. Run it by hand with `python -m app.ingest --qc-only --start YYYY-MM-DD`.
+Comparing with the highest neighbour protects real local downpours (e.g. 114 mm in Multia, July 2026, is not flagged). The altitude window keeps mountain stations from being compared with valleys; altitude (`stations.elevation_m`) comes from every source; FMI's WFS has none, so FMI heights come from its SmartMet timeseries service (`https://opendata.fmi.fi/timeseries`, `producer=opendata`, `keyword=synop_fi`, `param=fmisid,elevation`), fetched at the start of each FMI run. The station panel shows the height. On 2025–2026 data it flags about 17 rainfall and 90 snow values. Run it by hand with `python -m app.ingest --qc-only --start YYYY-MM-DD`.
 
 ### Licences
 

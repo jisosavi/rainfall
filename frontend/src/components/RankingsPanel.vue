@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Parameter, Period, RankedStation, Rankings } from '../api'
+import { isTemperature, type Order, type Parameter, type Period, type RankedStation, type Rankings } from '../api'
 import { countryTag } from '../lib/countries'
+import { SCALES } from '../lib/scales'
 import { formatShortDate, formatValue, t } from '../strings'
 import SegmentedControl from './SegmentedControl.vue'
 
@@ -13,17 +14,37 @@ const props = defineProps<{
 }>()
 const period = defineModel<Period>('period', { required: true })
 const allStations = defineModel<boolean>('allStations', { required: true })
+const order = defineModel<Order>('order', { required: true })
 const emit = defineEmits<{ select: [id: string] }>()
 
-const periodOptions = computed(() =>
-  (props.parameter === 'precipitation'
+const temperature = computed(() => isTemperature(props.parameter))
+const periodOptions = computed(() => {
+  if (temperature.value) {
+    return (['now', 'week', 'month', 'year', 'last30'] as const).map((value) => ({ value: value as Period, label: t.tempPeriods[value] }))
+  }
+  return (props.parameter === 'precipitation'
     ? (['week', 'month', 'year', 'last30'] as const)
     : (['now', 'winter_max', 'winter_days'] as const)
-  ).map((value) => ({ value: value as Period, label: t.periods[value] })),
-)
+  ).map((value) => ({ value: value as Period, label: t.periods[value] }))
+})
+const orderOptions: Array<{ value: Order; label: string }> = [
+  { value: 'warmest', label: t.orders.warmest },
+  { value: 'coldest', label: t.orders.coldest },
+]
+const heading = computed(() => {
+  const p = props.parameter
+  return isTemperature(p) ? t.topTempHeading[p][order.value] : t.topHeading[p]
+})
 const isDayCount = computed(() => props.rankings?.period === 'winter_days')
+// Rainfall and snow get a bar from zero; temperatures, which can be negative, a colour dot.
 const max = computed(() => Math.max(1, ...(props.rankings?.stations.map((s) => s.value) ?? [1])))
 const usesCoverage = computed(() => (props.rankings?.min_coverage ?? 0) > 0 || allStations.value)
+// The coverage toggle matters wherever a period needs data on most days.
+const coverageApplies = computed(() =>
+  props.parameter === 'precipitation' ||
+  period.value === 'winter_days' ||
+  (props.parameter === 'temp_mean' && period.value !== 'now'),
+)
 
 function display(s: RankedStation): string {
   return isDayCount.value ? `${s.value} ${t.snowDaysUnit}` : formatValue(props.parameter, s.value)
@@ -31,12 +52,13 @@ function display(s: RankedStation): string {
 </script>
 
 <template>
-  <section class="rankings panel" :aria-label="t.topHeading[parameter]">
+  <section class="rankings panel" :aria-label="heading">
     <header>
-      <h2>{{ t.topHeading[parameter] }}</h2>
+      <h2>{{ heading }}</h2>
+      <SegmentedControl v-if="temperature" v-model="order" :options="orderOptions" :label="t.orderLabel" class="periods" />
       <SegmentedControl v-model="period" :options="periodOptions" :label="t.periodLabel" class="periods" />
       <p v-if="rankings" class="range">{{ t.periodRange(formatShortDate(rankings.start), formatShortDate(rankings.end)) }}</p>
-      <label v-if="parameter === 'precipitation' || period === 'winter_days'" class="toggle" :title="t.allStationsHint">
+      <label v-if="coverageApplies" class="toggle" :title="t.allStationsHint">
         <input v-model="allStations" type="checkbox" /> {{ t.allStations }}
       </label>
     </header>
@@ -54,16 +76,17 @@ function display(s: RankedStation): string {
           <span class="who">
             <span class="name">{{ s.name }}</span>
             <span class="tag">{{ countryTag(s.country) }}</span>
-            <span class="bar" :style="{ width: `${(s.value / max) * 100}%` }" :class="parameter" />
+            <span v-if="!temperature" class="bar" :style="{ width: `${(s.value / max) * 100}%` }" :class="parameter" />
           </span>
           <span class="value">
-            {{ display(s) }}
-            <span v-if="usesCoverage" class="coverage">{{ t.coverage(s.days_with_data, s.days) }}</span>
+            <span v-if="temperature" class="dot" :style="{ background: SCALES[parameter].classOf(s.value).color }" />{{ display(s) }}
+            <span v-if="s.on_date && rankings.period !== 'now'" class="coverage">{{ t.onDate(formatShortDate(s.on_date)) }}</span>
+            <span v-else-if="usesCoverage" class="coverage">{{ t.coverage(s.days_with_data, s.days) }}</span>
           </span>
         </li>
       </ol>
       <p v-else-if="!loading" class="empty">{{ t.noRankings[parameter] }}</p>
-      <p class="note">{{ t.rankingNote }}</p>
+      <p class="note">{{ temperature ? t.tempRankingNote : t.rankingNote }}</p>
     </div>
   </section>
 </template>
@@ -164,6 +187,14 @@ li.selected {
   text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 0;
 }
 .coverage {
   display: block;

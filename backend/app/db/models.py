@@ -97,3 +97,14 @@ class DailyValue(Base):
     )
 
     station: Mapped[Station] = relationship(back_populates="values")
+
+
+class QcState(Base):
+    """Which version of the neighbour-check rules last judged each measurement's whole history.
+    When app.qc's version for a measurement is newer, the next run rechecks it from the start."""
+
+    __tablename__ = "qc_state"
+
+    parameter: Mapped[str] = mapped_column(String(32), primary_key=True)
+    rules_version: Mapped[int] = mapped_column(nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

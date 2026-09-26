@@ -15,7 +15,6 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
 
 
-- [ ] Temperature rankings: warmest and coldest (e.g. highest maximum, lowest minimum, warmest and coldest mean for a period).
 
 ## Later / ideas
 

@@ -20,6 +20,7 @@ export interface StationDay {
   country: string
   region: string | null
   owner: string | null
+  elevation_m: number | null
   date: string
   parameter: Parameter
   value: number | null
@@ -83,7 +84,9 @@ export function useLastData(stationId: Ref<string | null>, before: Ref<string | 
 
 export type RainPeriod = 'week' | 'month' | 'year' | 'last30'
 export type SnowPeriod = 'now' | 'winter_max' | 'winter_days'
-export type Period = RainPeriod | SnowPeriod
+export type TempPeriod = 'now' | 'week' | 'month' | 'year' | 'last30'
+export type Period = RainPeriod | SnowPeriod | TempPeriod
+export type Order = 'warmest' | 'coldest'
 
 export interface RankedStation {
   rank: number
@@ -100,11 +103,13 @@ export interface RankedStation {
   days_with_data: number
   days: number
   coverage: number
+  on_date: string | null
 }
 
 export interface Rankings {
   parameter: Parameter
   period: Period
+  order: Order | null
   unit: string
   start: string
   end: string
@@ -119,10 +124,19 @@ export function useRankings(
   date: Ref<string | null>,
   country: Ref<string>,
   allStations: Ref<boolean>,
+  order: Ref<Order>,
   enabled: Ref<boolean>,
 ) {
   return useQuery({
-    queryKey: computed(() => ['rankings', parameter.value, period.value, date.value, country.value, allStations.value]),
+    queryKey: computed(() => [
+      'rankings',
+      parameter.value,
+      period.value,
+      date.value,
+      country.value,
+      allStations.value,
+      isTemperature(parameter.value) ? order.value : null,
+    ]),
     queryFn: () =>
       getJson<Rankings>('/api/rankings', {
         parameter: parameter.value,
@@ -130,6 +144,7 @@ export function useRankings(
         date: date.value ?? undefined,
         country: country.value === 'all' ? undefined : country.value,
         min_coverage: allStations.value ? '0' : undefined,
+        order: isTemperature(parameter.value) ? order.value : undefined,
       }),
     enabled: computed(() => enabled.value && date.value !== null),
     staleTime: 10 * 60_000,

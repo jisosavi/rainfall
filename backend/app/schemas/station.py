@@ -20,6 +20,7 @@ class StationDay(BaseModel):
     country: str
     region: str | None = None
     owner: str | None = None
+    elevation_m: float | None = None  # station height above sea level, when known
     date: date
     parameter: Parameter = "precipitation"
     value: float | None = None

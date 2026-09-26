@@ -191,6 +191,7 @@ const sectionTitle = (s: Section) => (s.measurement === 'temperature' ? t.parame
     <dl class="meta">
       <div v-if="station.region"><dt>{{ t.region }}</dt><dd>{{ station.region }}</dd></div>
       <div v-if="station.owner"><dt>{{ t.owner }}</dt><dd>{{ station.owner }}</dd></div>
+      <div v-if="station.elevation_m !== null && station.elevation_m !== undefined"><dt>{{ t.elevation }}</dt><dd>{{ t.elevationValue(station.elevation_m) }}</dd></div>
       <div><dt>{{ t.stationId }}</dt><dd>{{ station.source_station_id }} · {{ t.sourceName[station.source] }}</dd></div>
       <div><dt>{{ t.coordinates }}</dt><dd>{{ station.lat.toFixed(3) }}° N, {{ station.lon.toFixed(3) }}° E</dd></div>
     </dl>

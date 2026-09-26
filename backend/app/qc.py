@@ -12,7 +12,10 @@ than a valley 20 km away), so only neighbours within MAX_ELEVATION_DIFF are comp
 both elevations are known (MET Norway and SMHI give them; FMI's daily data doesn't).
 Temperature is checked both ways: a value far from the median of its neighbours (within
 50 km and 300 m of altitude) is suspect, whether too warm or too cold. The limits are wide,
-minimum temperatures widest, because frost hollows and inversions are real.
+minimum temperatures widest, because frost hollows are real. In cold weather (neighbour
+median below 0 °C) temperature inversions make valleys 15–20 °C colder than slopes a few
+kilometres away (Kilpisjärvi, Kittilä, Bjorli, Folldal in 2025–26), so the limit is then
+INVERSION_DEVIATION for all three.
 Flagged rainfall is then checked against the station's own hourly readings: if they add up
 to the daily value, the storm was real and the flag becomes `confirmed_hourly` (ranked as
 normal). Stations without hourly data (mostly manual) keep the flag.
@@ -25,13 +28,13 @@ import statistics
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import Session
 
-from app.db.models import PARAMETERS, DailyValue, Station
+from app.db.models import PARAMETERS, DailyValue, QcState, Station
 from app.ingest.common import date_chunks
 
 logger = logging.getLogger(__name__)
@@ -52,15 +55,32 @@ class Rule:
     margin: float
     max_elevation_diff: float | None = None  # metres; None = compare regardless of altitude
     max_deviation: float | None = None  # two-sided: suspect if |value - neighbour median| > this
+    inversion_deviation: float | None = None  # two-sided limit when the neighbour median is below 0
+
+
+INVERSION_DEVIATION = 20.0  # °C
 
 
 RULES = {
     "precipitation": Rule(min_value=30, radius_km=50, min_neighbours=3, factor=3, margin=20),  # mm
     "snow_depth": Rule(min_value=50, radius_km=30, min_neighbours=3, factor=3, margin=50, max_elevation_diff=300),  # cm
     # °C; min_value/factor/margin are unused for two-sided rules.
-    "temp_mean": Rule(0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300, max_deviation=10),
-    "temp_min": Rule(0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300, max_deviation=15),
-    "temp_max": Rule(0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300, max_deviation=10),
+    **{
+        parameter: Rule(
+            0, radius_km=50, min_neighbours=3, factor=0, margin=0, max_elevation_diff=300,
+            max_deviation=deviation, inversion_deviation=INVERSION_DEVIATION,
+        )
+        for parameter, deviation in (("temp_mean", 10), ("temp_min", 15), ("temp_max", 10))
+    },
+}
+# Bump a measurement's version when its rule changes: the next ingestion run then rechecks
+# its whole history once (tracked in the qc_state table), not just the re-fetched days.
+RULES_VERSION = {
+    "precipitation": 1,
+    "snow_depth": 1,
+    "temp_mean": 2,  # 2: inversion allowance, FMI station heights
+    "temp_min": 2,
+    "temp_max": 2,
 }
 
 Position = tuple[float, float, float | None]  # lat, lon, elevation_m
@@ -100,7 +120,9 @@ def find_suspects(day_values: dict[UUID, float], positions: dict[UUID, Position]
         if len(neighbours) < rule.min_neighbours:
             continue
         if two_sided:
-            if abs(value - statistics.median(neighbours)) > rule.max_deviation:
+            median = statistics.median(neighbours)
+            limit = rule.inversion_deviation if rule.inversion_deviation is not None and median < 0 else rule.max_deviation
+            if abs(value - median) > limit:
                 suspects.append(station_id)
         elif value > rule.factor * max(neighbours) + rule.margin:
             suspects.append(station_id)
@@ -187,3 +209,15 @@ def flag_spatial_outliers(
         counts[parameter] = flagged
         logger.info("qc %s %s..%s: %d values flagged suspect_spatial", parameter, start, end, flagged)
     return counts
+
+
+def stale_parameters(session: Session) -> list[str]:
+    """Measurements whose whole history was last checked with older rules (never = version 1)."""
+    stored = dict(session.execute(select(QcState.parameter, QcState.rules_version)).all())
+    return [p for p in PARAMETERS if stored.get(p, 1) < RULES_VERSION[p]]
+
+
+def mark_checked(session: Session, parameters: list[str]) -> None:
+    for parameter in parameters:
+        session.merge(QcState(parameter=parameter, rules_version=RULES_VERSION[parameter], checked_at=datetime.now(timezone.utc)))
+    session.commit()

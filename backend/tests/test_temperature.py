@@ -171,17 +171,80 @@ def test_temperature_check_is_two_sided():
     a, b, c, d = (uuid4() for _ in range(4))
     positions = {a: (61.0, 25.0, 100.0), b: (61.1, 25.0, 90.0), c: (61.0, 25.2, 120.0), d: (60.9, 25.1, 80.0)}
     rule = RULES["temp_mean"]
-    neighbours = {b: -5.0, c: -6.0, d: -4.0}
-    assert find_suspects({a: 8.0, **neighbours}, positions, rule) == [a]  # 13 °C too warm
-    assert find_suspects({a: -20.0, **neighbours}, positions, rule) == [a]  # 15 °C too cold
-    assert find_suspects({a: -12.0, **neighbours}, positions, rule) == []
+    summer = {b: 15.0, c: 16.0, d: 14.0}
+    assert find_suspects({a: 28.0, **summer}, positions, rule) == [a]  # 13 °C too warm
+    assert find_suspects({a: 3.0, **summer}, positions, rule) == [a]  # 12 °C too cold
+    assert find_suspects({a: 7.0, **summer}, positions, rule) == []
     # A cold hollow 12 °C below its neighbours' minimum is plausible.
-    assert find_suspects({a: -26.0, b: -14.0, c: -15.0, d: -13.0}, positions, RULES["temp_min"]) == []
+    assert find_suspects({a: 1.0, b: 13.0, c: 14.0, d: 12.0}, positions, RULES["temp_min"]) == []
     # A mountain station isn't compared with the valley.
     high = {**positions, a: (61.0, 25.0, 900.0)}
-    assert find_suspects({a: -20.0, **neighbours}, high, rule) == []
+    assert find_suspects({a: 3.0, **summer}, high, rule) == []
 
 
-def test_temperature_rankings_not_available_yet(client):
-    response = client.get("/api/rankings", params={"parameter": "temp_max", "period": "month", "date": "2026-01-10"})
-    assert response.status_code == 422
+def test_winter_inversions_are_allowed_but_faults_are_not():
+    a, b, c, d = (uuid4() for _ in range(4))
+    positions = {a: (68.0, 21.0, 480.0), b: (68.1, 21.0, 500.0), c: (68.0, 21.2, 600.0), d: (67.9, 21.1, 450.0)}
+    winter = {b: -22.0, c: -21.0, d: -23.0}
+    # Like Kilpisjärvi village, 17 °C below the slopes in a January inversion: kept.
+    assert find_suspects({a: -39.0, **winter}, positions, RULES["temp_min"]) == []
+    assert find_suspects({a: -5.0, **winter}, positions, RULES["temp_mean"]) == []  # 17 °C warmer: kept
+    # More than 20 °C off is still a fault, e.g. a road sensor reading -45 in a -20 spell.
+    assert find_suspects({a: -45.0, **winter}, positions, RULES["temp_max"]) == [a]
+
+
+def test_temperature_rankings(client, db):
+    from tests.test_rankings import add_station, days
+
+    month = days(date(2026, 1, 1), 10)
+    # Kilpisjärvi-like: coldest night -39 on 5 Jan; its flagged -52 doesn't count.
+    add_station(db, "Cold", "FI", {d: -20.0 for d in month} | {month[4]: -39.0, month[6]: -52.0},
+                parameter="temp_min", flags={month[6]: "suspect_spatial"})
+    add_station(db, "Mild", "NO", {d: -2.0 for d in month} | {month[2]: 1.5}, parameter="temp_min")
+    add_station(db, "Short", "SE", {month[0]: -45.0}, parameter="temp_min")  # one day is enough for an extreme
+    add_station(db, "Mean full", "FI", {d: -5.0 for d in month}, parameter="temp_mean")
+    add_station(db, "Mean gappy", "FI", {d: -30.0 for d in month[:3]}, parameter="temp_mean")
+    db.commit()
+    params = {"parameter": "temp_min", "period": "month", "date": "2026-01-10"}
+
+    coldest = client.get("/api/rankings", params={**params, "order": "coldest"}).json()
+    assert [(s["name"], s["value"]) for s in coldest["stations"]] == [("Short", -45.0), ("Cold", -39.0), ("Mild", -2.0)]
+    assert coldest["stations"][1]["on_date"] == "2026-01-05"
+    assert (coldest["order"], coldest["min_coverage"]) == ("coldest", 0)
+
+    warmest = client.get("/api/rankings", params=params).json()
+    assert [(s["name"], s["value"], s["on_date"]) for s in warmest["stations"]][0] == ("Mild", 1.5, "2026-01-03")
+
+    # Mean: the period's average, with the coverage rule.
+    mean = client.get("/api/rankings", params={**params, "parameter": "temp_mean", "order": "coldest"}).json()
+    assert [s["name"] for s in mean["stations"]] == ["Mean full"]
+    everyone = client.get("/api/rankings", params={**params, "parameter": "temp_mean", "order": "coldest", "min_coverage": 0}).json()
+    assert [s["name"] for s in everyone["stations"]] == ["Mean gappy", "Mean full"]
+
+    wrong = client.get("/api/rankings", params={**params, "period": "winter_max"})
+    assert wrong.status_code == 422
+
+
+def test_changed_rules_are_rechecked_once(db):
+    from app.qc import RULES_VERSION, mark_checked, stale_parameters
+
+    assert set(stale_parameters(db)) == {p for p, v in RULES_VERSION.items() if v > 1}
+    mark_checked(db, stale_parameters(db))
+    assert stale_parameters(db) == []
+
+
+def test_fmi_station_heights():
+    import httpx
+
+    def handler(request):
+        assert request.url.params["keyword"] == "synop_fi"
+        return httpx.Response(200, json=[
+            {"fmisid": 101939, "elevation": 532.0}, {"fmisid": 101939, "elevation": 532.0}, {"fmisid": 1, "elevation": None},
+        ])
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        heights = fmi.fetch_elevations(client)
+    assert heights == {"101939": 532.0}
+    series = StationSeries(source="fmi", source_station_id="101939", name="Sodankylä Luosto", region=None,
+                           lat=67.1, lon=26.9, country="FI", parameter="temp_min")
+    assert fmi.with_elevations([series], heights)[0].elevation_m == 532.0

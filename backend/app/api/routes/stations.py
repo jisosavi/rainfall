@@ -56,6 +56,7 @@ def _station_day(station: Station, day: date, parameter: str, record: DailyValue
         country=station.country,
         region=station.region,
         owner=station.owner,
+        elevation_m=station.elevation_m,
         date=day,
         parameter=parameter,
         value=value,

@@ -5,7 +5,8 @@ otherwise re-fetches its last INGEST_REFETCH_DAYS days (sources revise recent va
 MET Norway needs FROST_CLIENT_ID; with --source all it is skipped when that is unset.
 
 After fetching, the spatial quality check (app.qc) re-flags suspect values over the dates
-the run covered. `--qc-only` runs just the check for --start..--end (default: from
+the run covered; a measurement whose rules changed (app.qc.RULES_VERSION) is rechecked from
+INGEST_START_DATE once. `--qc-only` runs just the check for --start..--end (default: from
 INGEST_START_DATE to yesterday).
 
 `--source smhi --archive-refresh` re-loads the last SMHI_ARCHIVE_REFRESH_DAYS days of rainfall,
@@ -22,8 +23,8 @@ import httpx
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.ingest import dmi, fmi, imo, met, smhi
-from app.db.models import PRECIPITATION, SNOW_DEPTH, TEMPERATURES
-from app.qc import confirm_with_hourly, flag_spatial_outliers
+from app.db.models import PARAMETERS, PRECIPITATION, SNOW_DEPTH, TEMPERATURES
+from app.qc import confirm_with_hourly, flag_spatial_outliers, mark_checked, stale_parameters
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
@@ -64,6 +65,8 @@ def main() -> int:
             qc_start, qc_end = args.start or settings.ingest_start_date, args.end or yesterday
             flag_spatial_outliers(session, qc_start, qc_end)
             _confirm_hourly(session, qc_start, qc_end, settings)
+            if qc_start <= settings.ingest_start_date and qc_end >= yesterday:
+                mark_checked(session, list(PARAMETERS))
         return 0
 
     failed = False
@@ -97,8 +100,16 @@ def main() -> int:
             # Neighbours come from all sources, so check the whole span this run touched.
             try:
                 qc_start, qc_end = min(s for s, _ in covered), max(e for _, e in covered)
-                flag_spatial_outliers(session, qc_start, qc_end)
-                _confirm_hourly(session, qc_start, qc_end, settings)
+                stale = stale_parameters(session)
+                current = tuple(p for p in PARAMETERS if p not in stale)
+                if current:
+                    flag_spatial_outliers(session, qc_start, qc_end, current)
+                if stale:
+                    logger.info("qc: rules changed for %s, rechecking from %s", ", ".join(stale), settings.ingest_start_date)
+                    flag_spatial_outliers(session, settings.ingest_start_date, qc_end, tuple(stale))
+                    mark_checked(session, stale)
+                confirm_start = settings.ingest_start_date if PRECIPITATION in stale else qc_start
+                _confirm_hourly(session, confirm_start, qc_end, settings)
             except Exception:
                 logger.exception("qc: spatial check failed")
                 session.rollback()
@@ -132,9 +143,17 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
 def _ingest(session, source: str, start: date, end: date, settings, archive_refresh: bool) -> int:
     if source == "fmi":
         with httpx.Client(timeout=120, headers={"User-Agent": met.USER_AGENT}) as client:
+            # Station heights (for the neighbour check's altitude window); optional.
+            try:
+                elevations = fmi.fetch_elevations(client)
+                logger.info("fmi: %d station heights", len(elevations))
+            except (httpx.HTTPError, ValueError) as exc:
+                logger.warning("fmi: station heights unavailable (%s)", exc)
+                elevations = {}
             # Daily values (rainfall, snow, min/max), then the 00–24 UTC mean from hourly data.
-            total = run_ingest(session, lambda a, b: fmi.fetch_daily(client, a, b), start, end, source)
-            fetch_mean = lambda a, b: fmi.fetch_daily_mean_temperature(client, a, b)
+            fetch_daily = lambda a, b: fmi.with_elevations(fmi.fetch_daily(client, a, b), elevations)
+            total = run_ingest(session, fetch_daily, start, end, source)
+            fetch_mean = lambda a, b: fmi.with_elevations(fmi.fetch_daily_mean_temperature(client, a, b), elevations)
             return total + run_ingest(session, fetch_mean, start, end, "fmi temp_mean")
     total = 0
     if source == "met":

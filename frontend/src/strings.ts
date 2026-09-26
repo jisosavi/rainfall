@@ -41,9 +41,9 @@ export const t = {
   noRankings: {
     precipitation: 'No rain in this period, so nothing to rank.',
     snow_depth: 'No snow in this period, so nothing to rank.',
-    temp_mean: 'Nothing to rank.',
-    temp_min: 'Nothing to rank.',
-    temp_max: 'Nothing to rank.',
+    temp_mean: 'No temperatures in this period.',
+    temp_min: 'No temperatures in this period.',
+    temp_max: 'No temperatures in this period.',
   },
   rankingNote: 'Values far above all nearby stations (⚠) are left out.',
   listHeading: {
@@ -65,7 +65,19 @@ export const t = {
   temperatureKind: 'Temperature',
   temperatureShort: { temp_mean: 'Mean', temp_min: 'Min', temp_max: 'Max' },
   listValueHeading: { precipitation: 'Rainfall', snow_depth: 'Snow depth', temp_mean: 'Mean', temp_min: 'Min', temp_max: 'Max' },
-  topNotForTemperature: 'Temperature rankings are coming later; Top 15 covers rainfall and snow depth for now.',
+  orderLabel: 'Order',
+  orders: { warmest: 'Warmest', coldest: 'Coldest' },
+  tempPeriods: { now: 'Day', week: 'Week', month: 'Month', year: 'Year', last30: 'Last 30 days' },
+  // Top 15 headings for temperature, by measurement and order.
+  topTempHeading: {
+    temp_mean: { warmest: 'Warmest mean temperature', coldest: 'Coldest mean temperature' },
+    temp_min: { warmest: 'Highest minimum (mildest nights)', coldest: 'Lowest minimum (coldest nights)' },
+    temp_max: { warmest: 'Highest maximum (hottest days)', coldest: 'Lowest maximum (coldest days)' },
+  },
+  tempRankingNote: 'Values far warmer or colder than nearby stations (⚠) are left out.',
+  onDate: (when: string) => `on ${when}`,
+  elevation: 'Elevation',
+  elevationValue: (m: number) => `${Math.round(m)} m`,
   station: 'Station',
   rainfall: 'Rainfall',
   snowDepth: 'Snow depth',
