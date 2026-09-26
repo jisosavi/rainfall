@@ -1,7 +1,7 @@
 import { computed, ref, type Ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 
-export type Source = 'fmi' | 'met' | 'smhi' | 'dmi' | 'imo'
+export type Source = 'fmi' | 'met' | 'smhi' | 'dmi' | 'imo' | 'kaa'
 export type TemperatureParameter = 'temp_mean' | 'temp_min' | 'temp_max'
 export type Parameter = 'precipitation' | 'snow_depth' | TemperatureParameter
 /** What the measurement switch shows: temperature covers mean, minimum and maximum. */

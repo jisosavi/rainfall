@@ -1,8 +1,8 @@
 # Nordic weather observations
 
-Daily rainfall and snow depth at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands and Iceland on a map, based on open data from FMI, MET Norway, SMHI, DMI and IMO.
+Daily rainfall, snow depth and temperature at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands, Iceland and Estonia on a map, based on open data from FMI, MET Norway, SMHI, DMI, IMO and the Estonian Environment Agency (Keskkonnaagentuur).
 
-- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI, DMI and IMO data twice a day.
+- **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI, DMI, IMO and Keskkonnaagentuur data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
 
@@ -16,7 +16,7 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 backend/
   app/api/routes/   HTTP endpoints
   app/db/           SQLAlchemy models and session
-  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), imo.py (Iceland), service.py (shared)
+  app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), imo.py (Iceland), kaa.py (Estonia), service.py (shared)
   app/qc.py         neighbour check and hourly confirmation
   app/api/routes/rankings.py  Top 15 rankings
   migrations/       Alembic migrations
@@ -124,10 +124,10 @@ All endpoints take `parameter=precipitation` (default, mm), `parameter=snow_dept
 | `GET /api/stations/{id}/last-data?parameter=&before=` | `{"date", "value", "unit"}`: the station's most recent day with a value up to `before` (null if none). The station panel uses it for "Last data: … · Show that day". |
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
-| `GET /api/rankings?period=&date=&parameter=&country=&limit=15&min_coverage=0.9&order=` | Top N stations for a period ending on `date`. Rainfall periods: `week` (ISO week to date), `month`, `year`, `last30` (totals). Snow periods: `now` (depth on the date), `winter_max` (deepest since 1 October), `winter_days` (days with ≥ 1 cm since 1 October). Temperature periods: `now`, `week`, `month`, `year`, `last30` with `order=warmest` (default) or `coldest`: minimum and maximum rank by the period's extreme (e.g. the coldest night), the mean by the period's average (with the coverage rule). Extremes carry `on_date`, the day they happened (also for `winter_max`). Rainfall and snow stations scoring 0 aren't listed. Values flagged `suspect_spatial` count as missing. Totals and day counts need data on `min_coverage` of the period's days (`0` ranks all). `country`: `fi`, `no` (incl. Svalbard), `se`, `dk`, `gl`, `fo`, `is`. |
+| `GET /api/rankings?period=&date=&parameter=&country=&limit=15&min_coverage=0.9&order=` | Top N stations for a period ending on `date`. Rainfall periods: `week` (ISO week to date), `month`, `year`, `last30` (totals). Snow periods: `now` (depth on the date), `winter_max` (deepest since 1 October), `winter_days` (days with ≥ 1 cm since 1 October). Temperature periods: `now`, `week`, `month`, `year`, `last30` with `order=warmest` (default) or `coldest`: minimum and maximum rank by the period's extreme (e.g. the coldest night), the mean by the period's average (with the coverage rule). Extremes carry `on_date`, the day they happened (also for `winter_max`). Rainfall and snow stations scoring 0 aren't listed. Values flagged `suspect_spatial` count as missing. Totals and day counts need data on `min_coverage` of the period's days (`0` ranks all). `country`: `fi`, `no` (incl. Svalbard), `se`, `dk`, `gl`, `fo`, `is`, `ee`. |
 | `GET /api/status` | `{"updated_at", "sources": {source: timestamp}}`: when values were last fetched. Shown as "Data updated …" in the app (the time is converted to the viewer's time zone). |
 
-`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi`, `dmi` or `imo`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands, `IS`), `region`, `owner` (organisation running the station, when known), `elevation_m` (station height above sea level, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
+`StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi`, `dmi`, `imo` or `kaa`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number, KAA station code such as `AJHARK01`), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands, `IS`, `EE`), `region`, `owner` (organisation running the station, when known), `elevation_m` (station height above sea level, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).
 
 `/api/stations` returns the stations FMI reported for that day. A station with a missing value is included with `has_data: false`, and the map shows it as a hollow circle. A station that wasn't operating that day is left out.
 
@@ -205,6 +205,17 @@ These were verified against the live API on 2026-09-26.
 - **Snow depth:** manual stations' 09 UTC readings (types `ur`, `sk`), `snd` in cm, stored under D. Without `snd`, the observer's snow cover `sncm` = 0 ("No snow") counts as 0 cm; partly or fully covered without a depth isn't stored. (`snc` can contradict `sncm` and isn't used.)
 - **Temperature:** from the EDR hour collection (the day collection has no minimum or maximum): the mean of `t`, the on-the-hour reading, at 00–23 UTC; the minimum / maximum of `tn` / `tx`, each the extreme of the past hour, over the hours ending 19 UTC on D-1 to 18 UTC on D. The collection takes one parameter per request and at most 3 days (413 otherwise). Near real time, about 170 stations.
 - **Stations:** 343 active with owner (stray leading commas removed) and elevation. Names can repeat (e.g. two "Reykjavík" stations with different ids).
+
+### KAA (Estonia)
+
+These were verified against the live API on 2026-09-26.
+
+- **Source:** the Estonian Environment Agency (Keskkonnaagentuur, KAA) climate open data, `https://keskkonnaandmed.envir.ee`, a PostgREST API with no registration or key. Licence CC BY 4.0 ([dataset page](https://keskkonnaportaal.ee/et/avaandmed/kliimaandmestik)). Tables `f_kliima_paev` (daily) and `f_kliima_tund` (hourly), one row per station, element and time (`aasta`, `kuu`, `paev`, `tund`, in UTC), queried per month. `f_kliima_jaam_vaatlus` gives coordinates, height and the observation periods of each element (several per element are possible, e.g. snow depth one per season). 25 weather stations, owner Keskkonnaagentuur.
+- **Publication:** once a day at about 02 UTC, with data up to 23 UTC the day before.
+- **Rainfall:** the daily `DPREC` covers 18 UTC on D-1 to 18 UTC on D (68 of 68 checked days equal the hourly sums), so ours is **summed from hourly `PR1H`** over 06 UTC on D to 06 UTC on D+1, as for DMI (a time marks the end of its hour; 23 of 24 hours needed). Day D is complete only once the hours up to 06 UTC on D+1 are published, i.e. **a day later than the other countries**; until then it's a missing row (`hourly17` etc.) and fills in on the next run. Flagged values are checked against the same hourly data.
+- **Temperature:** daily `DTAN` / `DTAX` cover 18 UTC on D-1 to 18 UTC on D (91 of 91 checked days equal the hourly extremes) and are stored as-is. The daily mean `DTA08` follows another day, so `temp_mean` is the mean of the hourly `TA` readings at 00–23 UTC (at least 20).
+- **Snow depth:** daily `DSND` in cm, read at 06 UTC on D, stored under D. 21 stations report every day, including 0.
+- **Corrections:** the agency validates its data once a year (first quarter); the 10-day re-fetch doesn't pick those corrections up yet (see roadmap).
 
 ### Plausibility limits (all sources)
 

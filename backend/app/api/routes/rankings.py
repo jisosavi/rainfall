@@ -35,7 +35,7 @@ SNOW_PERIODS = {"now", "winter_max", "winter_days"}
 TEMP_PERIODS = {"now", "week", "month", "year", "last30"}
 Order = Literal["warmest", "coldest"]
 # Filter keys -> station country codes (Svalbard and Jan Mayen count as Norway).
-COUNTRY_CODES = {"fi": ["FI"], "no": ["NO", "SJ"], "se": ["SE"], "dk": ["DK"], "gl": ["GL"], "fo": ["FO"], "is": ["IS"]}
+COUNTRY_CODES = {"fi": ["FI"], "no": ["NO", "SJ"], "se": ["SE"], "dk": ["DK"], "gl": ["GL"], "fo": ["FO"], "is": ["IS"], "ee": ["EE"]}
 
 
 class RankedStation(BaseModel):
@@ -88,7 +88,7 @@ def get_rankings(
     period: Period = Query(..., description="Rainfall: week, month, year, last30. Snow depth: now, winter_max, winter_days."),
     date_value: date = Query(..., alias="date", description="Last day of the period."),
     parameter: Parameter = Query("precipitation"),
-    country: str | None = Query(None, description="fi, no, se, dk, gl, fo or is; default all."),
+    country: str | None = Query(None, description="fi, no, se, dk, gl, fo, is or ee; default all."),
     limit: int = Query(15, ge=1, le=100),
     min_coverage: float = Query(0.9, ge=0, le=1, description="Share of the period's days a station needs data on."),
     order: Order = Query("warmest", description="Temperature only: warmest or coldest first."),

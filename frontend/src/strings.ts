@@ -113,7 +113,7 @@ export const t = {
   temperatureDay: (mean: string, min: string, max: string) => `mean ${mean} · ${min} to ${max}`,
   wetDays: 'Days with rain',
   measurementNote:
-    'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day (Iceland: 09:00–09:00 UTC). Snow depth: measured on the morning of that date. Temperature: the mean over 00:00–24:00 UTC; minimum and maximum from 18:00 UTC the day before to 18:00 UTC on that date.',
+    'Rainfall: the total from 06:00 UTC on that date to 06:00 UTC the next day (Iceland: 09:00–09:00 UTC; Estonia arrives a day later). Snow depth: measured on the morning of that date. Temperature: the mean over 00:00–24:00 UTC; minimum and maximum from 18:00 UTC the day before to 18:00 UTC on that date.',
   legendTitle: {
     precipitation: 'Rainfall per day',
     snow_depth: 'Snow depth',
@@ -122,11 +122,11 @@ export const t = {
     temp_max: 'Maximum temperature',
   },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
-  attribution: 'Data: FMI, MET Norway, SMHI, DMI and IMO (CC BY 4.0), processed',
+  attribution: 'Data: FMI, MET Norway, SMHI, DMI, IMO and Keskkonnaagentuur (CC BY 4.0), processed',
   aboutButton: 'About This App',
   aboutTitle: 'About This App',
   aboutBody:
-    'Nordic weather observations shows the daily rainfall, snow depth and temperature measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands and Iceland on a map. Pick a date and a measurement, and select a station for its recent history.',
+    'Nordic weather observations shows the daily rainfall, snow depth and temperature measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands, Iceland and Estonia on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
@@ -206,10 +206,21 @@ export const t = {
       corrections:
         'The last 10 days are re-checked on every run. Rainfall covers 09:00–09:00 UTC (3 hours later than the other countries), as no hourly data is published; snow depth is read at 09:00 UTC at manual stations.',
     },
+    {
+      source: 'kaa',
+      country: 'Estonia',
+      provider: 'Estonian Environment Agency (Keskkonnaagentuur)',
+      url: 'https://www.ilmateenistus.ee/kliima/ajaloolised-ilmaandmed/',
+      licence: 'CC BY 4.0',
+      licenceUrl: 'https://keskkonnaportaal.ee/et/avaandmed/kliimaandmestik',
+      newValues: 'Temperature and snow depth: yesterday. Rainfall: the day before yesterday (summed from hourly values, which are published once a day)',
+      corrections:
+        'The last 10 days are re-checked on every run. The agency validates its data once a year; those corrections are not yet picked up.',
+    },
   ] as const,
   countryFilter: 'Country',
   countryAll: 'All',
-  sourceName: { fmi: 'FMI', met: 'MET Norway', smhi: 'SMHI', dmi: 'DMI', imo: 'IMO' },
+  sourceName: { fmi: 'FMI', met: 'MET Norway', smhi: 'SMHI', dmi: 'DMI', imo: 'IMO', kaa: 'Keskkonnaagentuur' },
 }
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })

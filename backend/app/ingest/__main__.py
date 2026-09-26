@@ -1,4 +1,4 @@
-"""Run ingestion: `python -m app.ingest [--source fmi|met|smhi|dmi|imo|all] [--start YYYY-MM-DD] [--end YYYY-MM-DD]`.
+"""Run ingestion: `python -m app.ingest [--source fmi|met|smhi|dmi|imo|kaa|all] [--start YYYY-MM-DD] [--end YYYY-MM-DD]`.
 
 Without dates, each source backfills from INGEST_START_DATE if it has no data yet,
 otherwise re-fetches its last INGEST_REFETCH_DAYS days (sources revise recent values).
@@ -22,14 +22,14 @@ import httpx
 
 from app.config import get_settings
 from app.db.session import SessionLocal
-from app.ingest import dmi, fmi, imo, met, smhi
+from app.ingest import dmi, fmi, imo, kaa, met, smhi
 from app.db.models import PARAMETERS, PRECIPITATION, SNOW_DEPTH, TEMPERATURES
 from app.qc import confirm_with_hourly, flag_spatial_outliers, mark_checked, stale_parameters
 from app.ingest.service import default_range, run_ingest
 
 logger = logging.getLogger("app.ingest")
 
-ALL_SOURCES = ["fmi", "met", "smhi", "dmi", "imo"]
+ALL_SOURCES = ["fmi", "met", "smhi", "dmi", "imo", "kaa"]
 # Measurement types each source provides.
 SOURCE_PARAMETERS = {source: (PRECIPITATION, SNOW_DEPTH, *TEMPERATURES) for source in ALL_SOURCES}
 
@@ -124,6 +124,7 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
         httpx.Client(timeout=120, headers={"User-Agent": met.USER_AGENT}) as fmi_client,
         smhi.make_client() as smhi_client,
         dmi.make_client() as dmi_client,
+        kaa.make_client() as kaa_client,
         met.make_client(settings.frost_client_id or "") as met_client,
     ):
         def fetch(source: str, station_id: str, day: date) -> list[float]:
@@ -135,6 +136,8 @@ def _confirm_hourly(session, start: date, end: date, settings) -> None:
                 return dmi.fetch_hourly_precipitation(dmi_client, station_id, day)
             if source == "imo":
                 return []  # IMO publishes no hourly rainfall
+            if source == "kaa":
+                return kaa.fetch_hourly_precipitation(kaa_client, station_id, day)
             return smhi.fetch_hourly_precipitation(smhi_client, station_id, day, cache=smhi_cache)
 
         confirm_with_hourly(session, start, end, fetch)
@@ -171,6 +174,14 @@ def _ingest(session, source: str, start: date, end: date, settings, archive_refr
             for parameter in SOURCE_PARAMETERS[source]:
                 fetch = lambda a, b, parameter=parameter: imo.fetch_daily(client, a, b, stations, parameter)
                 total += run_ingest(session, fetch, start, end, f"imo {parameter}")
+        return total
+    if source == "kaa":
+        with kaa.make_client() as client:
+            stations = kaa.fetch_stations(client)
+            logger.info("kaa: %d stations", len(stations))
+            for parameter in SOURCE_PARAMETERS[source]:
+                fetch = lambda a, b, parameter=parameter: kaa.fetch_daily(client, a, b, stations, parameter)
+                total += run_ingest(session, fetch, start, end, f"kaa {parameter}")
         return total
     if source == "dmi":
         with dmi.make_client() as client:
