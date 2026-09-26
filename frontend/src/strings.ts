@@ -3,6 +3,7 @@ import type { Parameter } from './api'
 // All user-facing text (UK English), kept in one place so it can be translated later.
 export const t = {
   title: 'Nordic weather observations',
+  titleShort: 'Nordic Weather', // phones
   subtitle: 'Daily rainfall, snow depth and temperature at Nordic weather stations',
   loading: 'Loading…',
   loadError: 'Could not load the data. Please try again later.',
@@ -63,12 +64,14 @@ export const t = {
     temp_max: 'Maximum temperature',
   },
   measurementLabel: { precipitation: 'Rainfall', snow_depth: 'Snow depth', temperature: 'Temperature' },
+  measurementShort: { precipitation: 'Rain', snow_depth: 'Snow', temperature: 'Temp' }, // phones
   temperatureKind: 'Temperature',
   temperatureShort: { temp_mean: 'Mean', temp_min: 'Min', temp_max: 'Max' },
   listValueHeading: { precipitation: 'Rainfall', snow_depth: 'Snow depth', temp_mean: 'Mean', temp_min: 'Min', temp_max: 'Max' },
   orderLabel: 'Order',
   orders: { warmest: 'Warmest', coldest: 'Coldest' },
   tempPeriods: { now: 'Day', week: 'Week', month: 'Month', year: 'Year', last30: 'Last 30 days' },
+  last30Short: '30 days', // phones
   // Top 15 headings for temperature, by measurement and order.
   topTempHeading: {
     temp_mean: { warmest: 'Warmest mean temperature', coldest: 'Coldest mean temperature' },
@@ -123,6 +126,13 @@ export const t = {
     temp_max: 'Maximum temperature',
   },
   stationsWithData: (withData: number, total: number) => `${withData} of ${total} stations reporting`,
+  stationsWithDataShort: (withData: number, total: number) => `${withData}/${total} reporting`,
+  updatedShort: (when: string) => `updated ${when}`,
+  legendButton: 'Legend',
+  legendClose: 'Close legend',
+  sheetExpand: 'Expand',
+  sheetCollapse: 'Shrink',
+  rankingOptions: 'Ranking options',
   attribution: 'Data: FMI, MET Norway, SMHI, DMI, IMO and Keskkonnaagentuur (CC BY 4.0), processed',
   aboutButton: 'About This App',
   aboutTitle: 'About This App',

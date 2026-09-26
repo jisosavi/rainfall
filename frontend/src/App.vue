@@ -18,6 +18,7 @@ import {
   type TemperatureParameter,
 } from './api'
 import { useSelectionStore } from './stores/selection'
+import { useMobile } from './lib/useMobile'
 import { inCountry } from './lib/countries'
 import { formatDate, formatTimestamp, t } from './strings'
 import AboutDialog from './components/AboutDialog.vue'
@@ -35,11 +36,15 @@ const stations = useStations(date, parameter)
 const dates = useDates(parameter)
 const status = useStatus()
 
-const measurementOptions: Array<{ value: Measurement; label: string }> = [
-  { value: 'precipitation', label: t.measurementLabel.precipitation },
-  { value: 'snow_depth', label: t.measurementLabel.snow_depth },
-  { value: 'temperature', label: t.measurementLabel.temperature },
-]
+// Phones get a compact top box (short labels, one status line) and List / Top 15 as a bottom sheet.
+const mobile = useMobile()
+const sheetExpanded = ref(false)
+const measurementOptions = computed(() =>
+  (['precipitation', 'snow_depth', 'temperature'] as Measurement[]).map((value) => ({
+    value,
+    label: (mobile.value ? t.measurementShort : t.measurementLabel)[value],
+  })),
+)
 const temperatureOptions: Array<{ value: TemperatureParameter; label: string }> = [
   { value: 'temp_mean', label: t.temperatureShort.temp_mean },
   { value: 'temp_min', label: t.temperatureShort.temp_min },
@@ -148,7 +153,7 @@ function selectStation(id: string | null) {
 </script>
 
 <template>
-  <main class="app" :class="{ 'has-panel': selectedStation }">
+  <main class="app" :class="{ 'has-panel': selectedStation, 'has-sheet': view !== 'map', 'sheet-expanded': sheetExpanded }">
     <RainMap
       :stations="stationRows"
       :selected-id="stationId"
@@ -163,10 +168,11 @@ function selectStation(id: string | null) {
       <header class="top panel">
         <div class="title-row">
           <div>
-            <h1>{{ t.title }}</h1>
-            <p class="subtitle">{{ t.subtitle }}</p>
+            <h1>{{ mobile ? t.titleShort : t.title }}</h1>
+            <p v-if="!mobile" class="subtitle">{{ t.subtitle }}</p>
           </div>
-          <button type="button" @click="about?.open()">{{ t.aboutButton }}</button>
+          <button v-if="mobile" type="button" class="about-icon" :aria-label="t.aboutButton" :title="t.aboutButton" @click="about?.open()">i</button>
+          <button v-else type="button" @click="about?.open()">{{ t.aboutButton }}</button>
         </div>
 
         <div class="switches">
@@ -185,13 +191,22 @@ function selectStation(id: string | null) {
         <div class="status-row">
           <p v-if="errorMessage" class="status error" role="status">{{ errorMessage }}</p>
           <p v-else-if="stations.isPending.value" class="status">{{ t.loading }}</p>
+          <p v-else-if="shownDate && mobile" class="status">
+            {{ stationRows.length ? t.stationsWithDataShort(reporting, stationRows.length) : t.noStationsForDate }}
+            <template v-if="status.data.value?.updated_at">
+              ·
+              <button type="button" class="updated link" :title="t.dataUpdatedHint" @click="about?.open()">
+                {{ t.updatedShort(formatTimestamp(status.data.value.updated_at)) }}
+              </button>
+            </template>
+          </p>
           <p v-else-if="shownDate" class="status">
             {{ formatDate(shownDate) }} ·
             {{ stationRows.length ? t.stationsWithData(reporting, stationRows.length) : t.noStationsForDate }}
           </p>
         </div>
         <button
-          v-if="status.data.value?.updated_at"
+          v-if="status.data.value?.updated_at && !mobile"
           type="button"
           class="updated link"
           :title="t.dataUpdatedHint"
@@ -205,6 +220,17 @@ function selectStation(id: string | null) {
         </div>
       </header>
 
+      <div v-if="view !== 'map'" class="sheet">
+        <button
+          v-if="mobile"
+          type="button"
+          class="sheet-toggle icon"
+          :aria-label="sheetExpanded ? t.sheetCollapse : t.sheetExpand"
+          :title="sheetExpanded ? t.sheetCollapse : t.sheetExpand"
+          @click="sheetExpanded = !sheetExpanded"
+        >
+          {{ sheetExpanded ? '⌄' : '⌃' }}
+        </button>
       <StationList v-if="view === 'list'" :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectFromList" />
       <RankingsPanel
         v-else-if="view === 'top'"
@@ -217,6 +243,7 @@ function selectStation(id: string | null) {
         :selected-id="stationId"
         @select="selectFromList"
       />
+      </div>
       <MapLegend class="legend-position" :parameter="parameter" />
     </div>
 
@@ -296,9 +323,37 @@ h1 {
 .view-switch :deep(button) {
   font-size: 12px;
 }
-.left-column :deep(.rankings) {
+.sheet {
+  position: relative;
   flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sheet > :deep(.rankings),
+.sheet > :deep(.station-list) {
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: 100%;
+}
+.sheet-toggle {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 8px;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+.about-icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex: none;
+  border-radius: 50%;
+  font: italic 600 14px/1 Georgia, serif;
 }
 .controls-row {
   display: flex;
@@ -319,10 +374,6 @@ h1 {
 }
 .status.error {
   color: var(--text-primary);
-}
-.left-column :deep(.station-list) {
-  flex: 1 1 auto;
-  max-height: 100%;
 }
 .legend-position {
   margin-top: auto;
@@ -349,6 +400,58 @@ h1 {
     bottom: auto;
     width: auto;
     max-height: 55vh;
+  }
+  /* Compact top box: the controls, one short status line. */
+  .top {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .title-row {
+    align-items: center;
+  }
+  h1 {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .switches {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .parameter-switch :deep(button) {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+  .kind-switch :deep(button) {
+    font-size: 11px;
+    padding: 4px 7px;
+  }
+  .status {
+    font-size: 11px;
+  }
+  .status .updated {
+    margin: 0;
+    font-size: 11px;
+  }
+  /* List and Top 15: a bottom sheet over half the screen, expandable. */
+  .sheet {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    height: 50vh;
+    height: 50dvh;
+  }
+  /* Keep sheet headings clear of the expand button. */
+  .sheet :deep(h2) {
+    padding-right: 44px;
+  }
+  .sheet-expanded .sheet {
+    height: 85vh;
+    height: 85dvh;
+  }
+  .has-sheet .legend-position,
+  .has-sheet :deep(.maplibregl-ctrl-bottom-right) {
+    display: none;
   }
   .legend-position {
     position: fixed;

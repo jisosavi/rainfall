@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { isTemperature, type Order, type Parameter, type Period, type RankedStation, type Rankings } from '../api'
 import { countryTag } from '../lib/countries'
+import { useMobile } from '../lib/useMobile'
 import { SCALES } from '../lib/scales'
 import { formatShortDate, formatValue, t } from '../strings'
 import SegmentedControl from './SegmentedControl.vue'
@@ -18,14 +19,18 @@ const order = defineModel<Order>('order', { required: true })
 const emit = defineEmits<{ select: [id: string] }>()
 
 const temperature = computed(() => isTemperature(props.parameter))
+// Phones: shorter "30 days", and the rarely changed gaps option behind a ⚙ button.
+const mobile = useMobile()
+const showOptions = ref(false)
 const periodOptions = computed(() => {
-  if (temperature.value) {
-    return (['now', 'week', 'month', 'year', 'last30'] as const).map((value) => ({ value: value as Period, label: t.tempPeriods[value] }))
-  }
-  return (props.parameter === 'precipitation'
-    ? (['week', 'month', 'year', 'last30'] as const)
-    : (['now', 'winter_max', 'winter_days'] as const)
-  ).map((value) => ({ value: value as Period, label: t.periods[value] }))
+  const label = (value: Period) =>
+    value === 'last30' && mobile.value ? t.last30Short : temperature.value ? t.tempPeriods[value as keyof typeof t.tempPeriods] : t.periods[value]
+  const values: readonly Period[] = temperature.value
+    ? ['now', 'week', 'month', 'year', 'last30']
+    : props.parameter === 'precipitation'
+      ? ['week', 'month', 'year', 'last30']
+      : ['now', 'winter_max', 'winter_days']
+  return values.map((value) => ({ value, label: label(value) }))
 })
 const orderOptions: Array<{ value: Order; label: string }> = [
   { value: 'warmest', label: t.orders.warmest },
@@ -56,9 +61,23 @@ function display(s: RankedStation): string {
     <header>
       <h2>{{ heading }}</h2>
       <SegmentedControl v-if="temperature" v-model="order" :options="orderOptions" :label="t.orderLabel" class="periods" />
-      <SegmentedControl v-model="period" :options="periodOptions" :label="t.periodLabel" class="periods" />
-      <p v-if="rankings" class="range">{{ t.periodRange(formatShortDate(rankings.start), formatShortDate(rankings.end)) }}</p>
-      <label v-if="coverageApplies" class="toggle" :title="t.allStationsHint">
+      <div class="period-row">
+        <SegmentedControl v-model="period" :options="periodOptions" :label="t.periodLabel" class="periods" />
+        <p v-if="rankings && mobile" class="range">{{ t.periodRange(formatShortDate(rankings.start), formatShortDate(rankings.end)) }}</p>
+        <button
+          v-if="mobile && coverageApplies"
+          type="button"
+          class="options icon"
+          :aria-label="t.rankingOptions"
+          :title="t.rankingOptions"
+          :aria-expanded="showOptions"
+          @click="showOptions = !showOptions"
+        >
+          ⚙
+        </button>
+      </div>
+      <p v-if="rankings && !mobile" class="range">{{ t.periodRange(formatShortDate(rankings.start), formatShortDate(rankings.end)) }}</p>
+      <label v-if="coverageApplies && (!mobile || showOptions)" class="toggle" :title="t.allStationsHint">
         <input v-model="allStations" type="checkbox" /> {{ t.allStations }}
       </label>
     </header>
@@ -112,6 +131,19 @@ h2 {
 .periods :deep(button) {
   font-size: 11px;
   padding: 3px 7px;
+}
+.period-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.options {
+  margin-left: auto;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  font-size: 14px;
 }
 .range {
   margin: 0;
