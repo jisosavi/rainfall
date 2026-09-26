@@ -41,8 +41,11 @@ def test_r09_label_is_stored_one_day_earlier():
         series = imo.fetch_daily(client, date(2026, 1, 9), date(2026, 1, 13))
     by_id = {s.source_station_id: dict(s.values) for s in series}
     # Label 13 Jan (09 UTC 12 Jan -> 09 UTC 13 Jan) is stored under 12 Jan.
-    assert by_id["97"] == {date(2026, 1, 12): imo.Normalized(0.4, True, "0.4|r09")}
+    assert by_id["97"][date(2026, 1, 12)] == imo.Normalized(0.4, True, "0.4|r09")
     assert by_id["1"][date(2026, 1, 12)].value == 0.0
+    # Every other day in range is an explicit missing row (hollow circle), not absent.
+    assert sorted(by_id["97"]) == [date(2026, 1, d) for d in range(9, 14)]
+    assert (by_id["97"][date(2026, 1, 13)].has_data, by_id["97"][date(2026, 1, 13)].raw_status) == (False, "missing")
     assert all(s.country == "IS" and s.source == "imo" for s in series)
     cube = next(r for r in requests if r.url.path.endswith("/cube"))
     assert cube.url.params["datetime"] == "2026-01-10T00:00:00Z/2026-01-14T00:00:00Z"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
-import { useStationHistory, type DailyValue, type Parameter, type StationDay } from '../api'
+import { useLastData, useStationHistory, type DailyValue, type Parameter, type StationDay } from '../api'
 import { SCALES } from '../lib/scales'
 import { countryTag } from '../lib/countries'
 import { formatDate, formatValue, t } from '../strings'
@@ -56,6 +56,14 @@ const sections = computed<Section[]>(() => {
 })
 
 const swatch = (s: Section) => (s.value !== null ? SCALES[s.parameter].classOf(s.value).color : null)
+
+// For a measurement without a value on the shown date: when the station last had one.
+const noRain = computed(() => sections.value.some((s) => s.parameter === 'precipitation' && s.value === null))
+const noSnow = computed(() => sections.value.some((s) => s.parameter === 'snow_depth' && s.value === null))
+const lastData = {
+  precipitation: useLastData(stationId, day, 'precipitation', noRain),
+  snow_depth: useLastData(stationId, day, 'snow_depth', noSnow),
+}
 </script>
 
 <template>
@@ -75,6 +83,20 @@ const swatch = (s: Section) => (s.value !== null ? SCALES[s.parameter].classOf(s
         <span v-else class="swatch hollow" />
         {{ formatValue(s.parameter, s.value) }}
       </p>
+      <div v-if="s.value === null" class="no-data" role="note">
+        <span>{{ t.noDataOnDate }}</span>
+        <template v-if="lastData[s.parameter].data.value">
+          <template v-if="lastData[s.parameter].data.value!.date">
+            <span>
+              {{ t.lastData(formatDate(lastData[s.parameter].data.value!.date!), formatValue(s.parameter, lastData[s.parameter].data.value!.value)) }}
+            </span>
+            <button type="button" class="small" @click="emit('pickDate', lastData[s.parameter].data.value!.date!)">
+              {{ t.showThatDay }}
+            </button>
+          </template>
+          <span v-else>{{ t.neverData }}</span>
+        </template>
+      </div>
       <p v-if="s.flag === 'suspect_spatial'" class="suspect" role="note">⚠ {{ t.suspectLong }}</p>
       <p v-else-if="s.flag === 'confirmed_hourly'" class="confirmed" role="note">✓ {{ t.confirmedLong }}</p>
 
@@ -217,6 +239,19 @@ h3 {
   font-size: 12px;
   line-height: 1.4;
   color: #fab219;
+}
+.no-data {
+  margin: -4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.no-data span:first-child {
+  flex-basis: 100%;
 }
 .confirmed {
   margin: -4px 0 0;

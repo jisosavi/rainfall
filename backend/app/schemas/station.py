@@ -1,3 +1,4 @@
+import datetime as dt
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
@@ -47,6 +48,17 @@ class DatesResponse(BaseModel):
 
 class YearsResponse(BaseModel):
     years: list[int]
+
+
+class LastDataResponse(BaseModel):
+    """A station's most recent day with a value, up to a given date (None if it has none)."""
+
+    station_id: UUID
+    parameter: Parameter = "precipitation"
+    unit: str = "mm"
+    # dt.date: a field named `date` with a default would shadow the `date` type here.
+    date: dt.date | None = None
+    value: float | None = None
 
 
 class StatusResponse(BaseModel):

@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.schemas.station import (
     DatesResponse,
     HistoryValue,
+    LastDataResponse,
     LatestDateResponse,
     Parameter,
     StationDay,
@@ -163,6 +164,38 @@ def get_station_history(
             )
             for r in rows
         ],
+    )
+
+
+@router.get("/stations/{station_id}/last-data", response_model=LastDataResponse)
+def get_station_last_data(
+    station_id: UUID,
+    before: date | None = Query(None, description="Latest date to consider (inclusive). Defaults to any date."),
+    parameter: Parameter = PARAMETER_QUERY,
+    db: Session = Depends(get_db),
+):
+    """For a station without data on the shown date: when it last had a value."""
+    if db.get(Station, station_id) is None:
+        raise HTTPException(status_code=404, detail="Station not found.")
+    query = (
+        select(DailyValue.date, DailyValue.value)
+        .where(
+            DailyValue.station_id == station_id,
+            DailyValue.parameter == parameter,
+            DailyValue.has_data.is_(True),
+        )
+        .order_by(DailyValue.date.desc())
+        .limit(1)
+    )
+    if before is not None:
+        query = query.where(DailyValue.date <= before)
+    row = db.execute(query).first()
+    return LastDataResponse(
+        station_id=station_id,
+        parameter=parameter,
+        unit=UNITS[parameter],
+        date=row.date if row else None,
+        value=row.value if row else None,
     )
 
 

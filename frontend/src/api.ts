@@ -58,6 +58,23 @@ async function getJson<T>(path: string, params: Record<string, string | undefine
 
 const retry = (count: number, error: Error) => !(error instanceof NotFoundError) && count < 2
 
+export interface LastData {
+  date: string | null
+  value: number | null
+}
+
+/** When a station last had a value, up to `before` (for stations without data that day). */
+export function useLastData(stationId: Ref<string | null>, before: Ref<string | null>, parameter: Parameter, enabled: Ref<boolean>) {
+  return useQuery({
+    queryKey: computed(() => ['last-data', parameter, stationId.value, before.value]),
+    queryFn: () =>
+      getJson<LastData>(`/api/stations/${stationId.value}/last-data`, { parameter, before: before.value ?? undefined }),
+    enabled: computed(() => enabled.value && stationId.value !== null),
+    staleTime: 10 * 60_000,
+    retry,
+  })
+}
+
 export interface Status {
   updated_at: string | null
   sources: Partial<Record<Source, string>>

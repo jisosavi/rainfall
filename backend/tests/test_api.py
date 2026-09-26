@@ -134,3 +134,13 @@ def test_status_reports_last_fetch(client, seeded):
 
 def test_status_empty_db(client):
     assert client.get("/api/status").json() == {"updated_at": None, "sources": {}}
+
+
+def test_last_data_for_station_without_data(client, seeded):
+    oulu = seeded["oulu"].id  # only has_data=false rows
+    assert client.get(f"/api/stations/{oulu}/last-data").json()["date"] is None
+    helsinki = seeded["helsinki"].id
+    body = client.get(f"/api/stations/{helsinki}/last-data", params={"before": "2026-09-01"}).json()
+    assert (body["date"], body["value"], body["unit"]) == ("2025-12-31", 1.2, "mm")
+    assert client.get(f"/api/stations/{helsinki}/last-data").json()["date"] == "2026-09-24"
+    assert client.get(f"/api/stations/{uuid4()}/last-data").status_code == 404

@@ -7,7 +7,9 @@ Facts verified against the live API (2026-09):
   summed over our 06–06 UTC day. The only daily rainfall is `r09` in the EDR day
   collection: the 24 h total from 09 UTC on D-1 to 09 UTC on D, labelled D (it equals the
   manual stations' own 09 UTC reading on D). It is stored under D-1, whose 06–06 UTC day
-  overlaps it by 21 of 24 hours; the 3 h offset is stated in the app.
+  overlaps it by 21 of 24 hours; the 3 h offset is stated in the app. Stations that report
+  rainfall in a period get a missing row for each day without a value (hollow circles),
+  including the latest 3–4 days, which are published late and filled in by later runs.
 - Snow depth comes from manual stations' 09 UTC synop readings (types `ur`, `sk`): `snd` in
   cm. Without `snd`, the observer's snow cover `sncm` = 0 ("No snow") counts as 0 cm; partly
   or fully covered without a depth is unknown and not stored. (`snc` can contradict `sncm`
@@ -171,6 +173,12 @@ def fetch_daily(
         values = by_station.get(s.id)
         if not values:
             continue
+        if parameter == "precipitation":
+            # Every day in range: a missing row where the station has no value (yet).
+            day = start
+            while day <= end:
+                values.setdefault(day, Normalized(None, False, "missing"))
+                day += timedelta(days=1)
         result.append(
             StationSeries(
                 source=SOURCE,
