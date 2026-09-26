@@ -75,6 +75,60 @@ export function useLastData(stationId: Ref<string | null>, before: Ref<string | 
   })
 }
 
+export type RainPeriod = 'week' | 'month' | 'year' | 'last30'
+export type SnowPeriod = 'now' | 'winter_max' | 'winter_days'
+export type Period = RainPeriod | SnowPeriod
+
+export interface RankedStation {
+  rank: number
+  id: string
+  name: string
+  country: string
+  source: Source
+  lat: number
+  lon: number
+  value: number
+  days_with_data: number
+  days: number
+  coverage: number
+}
+
+export interface Rankings {
+  parameter: Parameter
+  period: Period
+  unit: string
+  start: string
+  end: string
+  days: number
+  min_coverage: number
+  stations: RankedStation[]
+}
+
+export function useRankings(
+  parameter: Ref<Parameter>,
+  period: Ref<Period>,
+  date: Ref<string | null>,
+  country: Ref<string>,
+  allStations: Ref<boolean>,
+  enabled: Ref<boolean>,
+) {
+  return useQuery({
+    queryKey: computed(() => ['rankings', parameter.value, period.value, date.value, country.value, allStations.value]),
+    queryFn: () =>
+      getJson<Rankings>('/api/rankings', {
+        parameter: parameter.value,
+        period: period.value,
+        date: date.value ?? undefined,
+        country: country.value === 'all' ? undefined : country.value,
+        min_coverage: allStations.value ? '0' : undefined,
+      }),
+    enabled: computed(() => enabled.value && date.value !== null),
+    staleTime: 10 * 60_000,
+    placeholderData: (previous) => previous,
+    retry,
+  })
+}
+
 export interface Status {
   updated_at: string | null
   sources: Partial<Record<Source, string>>

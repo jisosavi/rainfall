@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.routes.health import router as health_router
+from app.api.routes.rankings import router as rankings_router
 from app.api.routes.stations import router as stations_router
 from app.config import get_settings
 
@@ -22,6 +23,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(stations_router)
+app.include_router(rankings_router)
 
 
 @app.get("/")

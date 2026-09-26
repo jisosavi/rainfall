@@ -18,13 +18,14 @@ backend/
   app/db/           SQLAlchemy models and session
   app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), imo.py (Iceland), service.py (shared)
   app/qc.py         neighbour check and hourly confirmation
+  app/api/routes/rankings.py  Top 15 rankings
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
   Dockerfile, start.sh, railway.json
 scripts/
   check_docs.py     docs-vs-code check to run before pushing
 frontend/
-  src/components/   map, legend, date control, station panel, list, about dialog
+  src/components/   map, legend, date control, station panel, list, Top 15 rankings, about dialog
   src/api.ts        API types and queries
   src/strings.ts    all interface text (UK English)
   src/lib/rainScale.ts  rainfall colour classes
@@ -123,6 +124,7 @@ All endpoints take `parameter=precipitation` (default, mm) or `parameter=snow_de
 | `GET /api/stations/{id}/last-data?parameter=&before=` | `{"date", "value", "unit"}`: the station's most recent day with a value up to `before` (null if none). The station panel uses it for "Last data: … · Show that day". |
 | `GET /api/dates?year=` | `{"dates"}`, newest first |
 | `GET /api/years` | `{"years"}`, ascending |
+| `GET /api/rankings?period=&date=&parameter=&country=&limit=15&min_coverage=0.9` | Top N stations for a period ending on `date`. Rainfall periods: `week` (ISO week to date), `month`, `year`, `last30` (totals). Snow periods: `now` (depth on the date), `winter_max` (deepest since 1 October), `winter_days` (days with ≥ 1 cm since 1 October). Values flagged `suspect_spatial` count as missing. Totals and day counts need data on `min_coverage` of the period's days (`0` ranks all). `country`: `fi`, `no` (incl. Svalbard), `se`, `dk`, `gl`, `fo`, `is`. |
 | `GET /api/status` | `{"updated_at", "sources": {source: timestamp}}`: when values were last fetched. Shown as "Data updated …" in the app (the time is converted to the viewer's time zone). |
 
 `StationDay` has these fields: `id` (UUID), `source` (`fmi`, `met`, `smhi`, `dmi` or `imo`), `source_station_id` (FMI fmisid, Frost id such as `SN18700`, SMHI or DMI station number), `name`, `lat`, `lon`, `country` (`FI`, `NO`, `SJ` for Svalbard and Jan Mayen, `SE`, `DK`, `GL` for Greenland, `FO` for the Faroe Islands, `IS`), `region`, `owner` (organisation running the station, when known), `date`, `parameter`, `value`, `unit`, `has_data`, plus `precipitation_mm` (same as `value` for rainfall, kept for older frontends).

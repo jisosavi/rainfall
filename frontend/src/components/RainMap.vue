@@ -4,14 +4,20 @@ import * as maplibregl from 'maplibre-gl'
 // MapLibre 6 loads its worker relative to its own module, which Vite relocates; bundle it explicitly.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { MapboxOverlay } from '@deck.gl/mapbox'
-import { ScatterplotLayer } from '@deck.gl/layers'
+import { ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import type { PickingInfo } from '@deck.gl/core'
-import type { Parameter, StationDay } from '../api'
+import type { Parameter, RankedStation, StationDay } from '../api'
 import { boundsFor, START_BOUNDS, type CountryFilter } from '../lib/countries'
 import { SCALES } from '../lib/scales'
 import { formatValue, t } from '../strings'
 
-const props = defineProps<{ stations: StationDay[]; selectedId: string | null; parameter: Parameter; focus: CountryFilter }>()
+const props = defineProps<{
+  stations: StationDay[]
+  selectedId: string | null
+  parameter: Parameter
+  focus: CountryFilter
+  ranks: RankedStation[] // Top 15: rank numbers next to these stations
+}>()
 const emit = defineEmits<{ select: [id: string | null] }>()
 
 const container = ref<HTMLDivElement>()
@@ -39,7 +45,30 @@ function drawOrder(stations: StationDay[]): StationDay[] {
 function buildLayers() {
   const selected = props.selectedId
   const selectedStation = props.stations.find((s) => s.id === selected)
-  return [stationsLayer(), ...(selectedStation ? [selectionRing(selectedStation)] : [])]
+  return [
+    stationsLayer(),
+    ...(selectedStation ? [selectionRing(selectedStation)] : []),
+    ...(props.ranks.length ? [rankLabels()] : []),
+  ]
+}
+
+// Rank numbers for the Top 15, next to each ranked station.
+function rankLabels() {
+  return new TextLayer<RankedStation>({
+    id: 'ranks',
+    data: props.ranks,
+    getPosition: (d) => [d.lon, d.lat],
+    getText: (d) => String(d.rank),
+    getSize: 12,
+    getColor: [242, 242, 243, 255],
+    getPixelOffset: [0, -14],
+    fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+    fontWeight: 700,
+    background: true,
+    getBackgroundColor: [22, 22, 23, 220],
+    backgroundPadding: [3, 1],
+    characterSet: '0123456789',
+  })
 }
 
 // Fixed-size white ring on top of the selected station, independent of zoom.
@@ -131,7 +160,7 @@ watch(
 )
 
 watch(
-  () => [props.stations, props.selectedId, props.parameter],
+  () => [props.stations, props.selectedId, props.parameter, props.ranks],
   () => overlay?.setProps({ layers: buildLayers() }),
 )
 

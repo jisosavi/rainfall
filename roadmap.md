@@ -8,13 +8,6 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Next
 
-- [ ] Top 15 rankings, as a "List | Top 15" switch in the left column; uses the existing measurement, country and date controls:
-  - Rainfall: totals for Week / Month / Year (up to the shown date) and rolling Last 30 days
-  - Snow depth: Now, Winter (deepest since 1 October), Winter (days with snow cover)
-  - Coverage rule: by default only stations with data on at least 90% of the period's days, with a switch to show all; each row shows its coverage (e.g. 29/30 days)
-  - Rank numbers next to the top 15 on the map; clicking a row opens the station
-  - Backend: `GET /api/rankings?parameter=&period=&date=&country=&limit=15&min_coverage=`
-
 - [ ] Year selector: browse by year, using `/api/years` and `/api/dates?year=`
 - [ ] Finnish translation: all text is in `frontend/src/strings.ts`. Add a language switch.
 - [ ] Longer history in the station panel, e.g. a month or year view (the API allows up to 366 days)

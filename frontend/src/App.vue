@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { NotFoundError, useDates, useStations, useStatus, type Parameter, type Source } from './api'
+import { NotFoundError, useDates, useRankings, useStations, useStatus, type Parameter, type Period, type Source } from './api'
 import { useSelectionStore } from './stores/selection'
 import { inCountry } from './lib/countries'
 import { formatDate, formatTimestamp, t } from './strings'
@@ -11,6 +11,7 @@ import DateControl from './components/DateControl.vue'
 import MapLegend from './components/MapLegend.vue'
 import RainMap from './components/RainMap.vue'
 import SegmentedControl from './components/SegmentedControl.vue'
+import RankingsPanel from './components/RankingsPanel.vue'
 import StationList from './components/StationList.vue'
 import StationPanel from './components/StationPanel.vue'
 
@@ -25,9 +26,21 @@ const parameterOptions: Array<{ value: Parameter; label: string }> = [
 ]
 
 const about = ref<InstanceType<typeof AboutDialog>>()
-const showList = ref(false)
+// Left column: map only, the station list, or the Top 15 rankings.
+type View = 'map' | 'list' | 'top'
+const view = ref<View>('map')
+const viewOptions: Array<{ value: View; label: string }> = [
+  { value: 'map', label: t.viewMap },
+  { value: 'list', label: t.viewList },
+  { value: 'top', label: t.viewTop },
+]
+const DEFAULT_PERIOD: Record<Parameter, Period> = { precipitation: 'month', snow_depth: 'now' }
+const period = ref<Period>(DEFAULT_PERIOD[parameter.value])
+watch(parameter, (p) => (period.value = DEFAULT_PERIOD[p]))
+const allStations = ref(false)
 
 const shownDate = computed(() => stations.data.value?.date ?? date.value)
+const rankings = useRankings(parameter, period, shownDate, country, allStations, computed(() => view.value === 'top'))
 const stationRows = computed(() => {
   const all = stations.data.value?.stations ?? []
   return all.filter((s) => inCountry(country.value, s.country))
@@ -54,7 +67,14 @@ function selectStation(id: string | null) {
 
 <template>
   <main class="app" :class="{ 'has-panel': selectedStation }">
-    <RainMap :stations="stationRows" :selected-id="stationId" :parameter="parameter" :focus="country" @select="selectStation" />
+    <RainMap
+      :stations="stationRows"
+      :selected-id="stationId"
+      :parameter="parameter"
+      :focus="country"
+      :ranks="view === 'top' ? (rankings.data.value?.stations ?? []) : []"
+      @select="selectStation"
+    />
 
     <div class="left-column">
       <header class="top panel">
@@ -89,13 +109,21 @@ function selectStation(id: string | null) {
         </button>
         <div class="controls-row">
           <CountryFilter v-model="country" />
-          <button type="button" class="small" :aria-pressed="showList" @click="showList = !showList">
-            {{ showList ? t.hideList : t.showList }}
-          </button>
+          <SegmentedControl v-model="view" :options="viewOptions" :label="t.viewLabel" class="view-switch" />
         </div>
       </header>
 
-      <StationList v-if="showList" :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectStation" />
+      <StationList v-if="view === 'list'" :stations="stationRows" :selected-id="stationId" :parameter="parameter" @select="selectStation" />
+      <RankingsPanel
+        v-else-if="view === 'top'"
+        v-model:period="period"
+        v-model:all-stations="allStations"
+        :parameter="parameter"
+        :rankings="rankings.data.value"
+        :loading="rankings.isFetching.value"
+        :selected-id="stationId"
+        @select="selectStation"
+      />
       <MapLegend class="legend-position" :parameter="parameter" />
     </div>
 
@@ -165,6 +193,13 @@ h1 {
   align-self: flex-start;
   margin-top: -6px;
   font-size: 11px;
+}
+.view-switch :deep(button) {
+  font-size: 12px;
+}
+.left-column :deep(.rankings) {
+  flex: 1 1 auto;
+  max-height: 100%;
 }
 .controls-row {
   display: flex;
