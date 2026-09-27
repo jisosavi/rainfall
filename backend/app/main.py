@@ -9,6 +9,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.rankings import router as rankings_router
 from app.api.routes.stations import router as stations_router
 from app.config import get_settings
+from app.limits import LimitExceeded, RestLimiter, client_ip
 from app.mcp_server.server import http_app as mcp_http_app
 from app.mcp_server.server import mcp, public_mcp_url
 from app.services.errors import InvalidRequestError, NotFoundError
@@ -32,6 +33,20 @@ app = FastAPI(
     "For AI agents there is also an MCP server at /mcp.",
     lifespan=lifespan,
 )
+
+rest_limiter = RestLimiter(settings.rest_ip_per_minute)
+
+
+@app.middleware("http")
+async def limit_rest_api(request: Request, call_next):
+    # A generous per-IP limit on the REST API (the web app itself stays far below it).
+    if request.url.path.startswith("/api/"):
+        try:
+            rest_limiter.check(client_ip(request.headers, request.client.host if request.client else None))
+        except LimitExceeded as exc:
+            return JSONResponse(status_code=429, content={"detail": str(exc)}, headers={"Retry-After": str(exc.retry_after)})
+    return await call_next(request)
+
 
 # /api/stations returns ~900 stations; compress JSON responses.
 app.add_middleware(GZipMiddleware, minimum_size=1000)

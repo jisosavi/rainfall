@@ -22,6 +22,19 @@ class Settings(BaseSettings):
     frost_client_id: str | None = Field(default=None, alias="FROST_CLIENT_ID")
     # The address agents are told to use (MCP at <this>/mcp); change it when a custom domain is added.
     public_base_url: str = Field(default="https://rainfall-production.up.railway.app", alias="PUBLIC_BASE_URL")
+    # Traffic limits (app.limits). MCP tool calls per session, per IP (higher for the trusted
+    # ranges: Anthropic's outbound addresses, shared by all Claude users) and globally; above the
+    # global rate the tools pause for MCP_PAUSE_MINUTES. REST: per IP. 0 turns a REST limit off.
+    mcp_session_per_minute: int = Field(default=60, alias="MCP_SESSION_PER_MINUTE")
+    mcp_session_per_day: int = Field(default=1500, alias="MCP_SESSION_PER_DAY")
+    mcp_ip_per_minute: int = Field(default=60, alias="MCP_IP_PER_MINUTE")
+    mcp_trusted_ip_per_minute: int = Field(default=1000, alias="MCP_TRUSTED_IP_PER_MINUTE")
+    mcp_trusted_ranges_raw: str = Field(default="160.79.104.0/21", alias="MCP_TRUSTED_IP_RANGES")
+    mcp_global_per_minute: int = Field(default=1200, alias="MCP_GLOBAL_PER_MINUTE")
+    mcp_pause_minutes: int = Field(default=15, alias="MCP_PAUSE_MINUTES")
+    rest_ip_per_minute: int = Field(default=300, alias="REST_IP_PER_MINUTE")
+    # Web requests' database statements are cancelled after this long (ingestion isn't limited).
+    statement_timeout_ms: int = Field(default=10000, alias="STATEMENT_TIMEOUT_MS")
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
@@ -34,6 +47,10 @@ class Settings(BaseSettings):
             if value.startswith(prefix):
                 return "postgresql+psycopg://" + value[len(prefix):]
         return value
+
+    @property
+    def mcp_trusted_ranges(self) -> tuple[str, ...]:
+        return tuple(r.strip() for r in self.mcp_trusted_ranges_raw.split(",") if r.strip())
 
     @property
     def cors_origins(self) -> list[str]:

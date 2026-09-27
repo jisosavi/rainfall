@@ -60,6 +60,11 @@ After a model change: `alembic revision --autogenerate -m "..."`. Review the gen
 | `INGEST_REFETCH_DAYS` | ingest | Recent days re-fetched on every run. Default `10`. |
 | `SMHI_ARCHIVE_REFRESH_DAYS` | ingest | Days re-loaded by `--archive-refresh`. Default `130`. |
 | `PUBLIC_BASE_URL` | web | The address agents are told to use; the MCP server is at `<this>/mcp`. Default `https://rainfall-production.up.railway.app`. Change it when a custom domain is added (the Railway address keeps working). |
+| `MCP_SESSION_PER_MINUTE`, `MCP_SESSION_PER_DAY` | web | MCP tool calls per session (clients on protocol versions before 2026-07-28, which have sessions). Defaults `60`, `1500`. |
+| `MCP_IP_PER_MINUTE`, `MCP_TRUSTED_IP_PER_MINUTE`, `MCP_TRUSTED_IP_RANGES` | web | MCP tool calls per client IP: `60` a minute, but `1000` for the trusted ranges, by default Anthropic's outbound range `160.79.104.0/21`, which all Claude connector users share. |
+| `MCP_GLOBAL_PER_MINUTE`, `MCP_PAUSE_MINUTES` | web | Above `1200` tool calls a minute in total, the MCP tools pause for everyone for `15` minutes, answering with a message saying when to retry. The REST API and web app keep working. |
+| `REST_IP_PER_MINUTE` | web | REST API requests per client IP a minute (`/api/…`; `/health` isn't limited). Default `300`; `0` turns it off. Over it: HTTP 429 with `Retry-After`. |
+| `STATEMENT_TIMEOUT_MS` | web | Database statements of web requests (REST, MCP) are cancelled after this long. Default `10000`. Ingestion isn't limited. |
 | `FROST_CLIENT_ID` | ingest | MET Norway Frost client ID ([register free](https://frost.met.no/auth/requestCredentials.html)). Without it, MET is skipped. The client secret is not needed. Never commit it. |
 
 ## Before pushing

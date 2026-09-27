@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated, Literal, TypeVar
 from uuid import UUID
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import session as db_session
+from app.limits import LimitExceeded, McpLimiter, McpLimits, client_ip
 from app.schemas.queries import DataStatus, DayOverview, Observations, StationInfo, StationSummary
 from app.services import overview, rankings, stations
 from app.services.errors import InvalidRequestError, NotFoundError
@@ -92,6 +93,32 @@ class DataStatusResult(DataStatus, Attributed):
 
 T = TypeVar("T")
 
+_settings = get_settings()
+limiter = McpLimiter(
+    McpLimits(
+        session_per_minute=_settings.mcp_session_per_minute,
+        session_per_day=_settings.mcp_session_per_day,
+        ip_per_minute=_settings.mcp_ip_per_minute,
+        trusted_ip_per_minute=_settings.mcp_trusted_ip_per_minute,
+        global_per_minute=_settings.mcp_global_per_minute,
+        pause_minutes=_settings.mcp_pause_minutes,
+        trusted_ranges=_settings.mcp_trusted_ranges,
+    )
+)
+
+
+def _caller(ctx: Context | None) -> tuple[str | None, str | None]:
+    """(MCP session id, client IP) of the current request, when known (not for in-process calls)."""
+    if ctx is None:
+        return None, None
+    try:
+        headers = ctx.headers or {}
+        request = ctx.request_context.request
+    except (ValueError, AttributeError, LookupError):
+        return None, None
+    peer = getattr(getattr(request, "client", None), "host", None)
+    return headers.get("mcp-session-id"), client_ip(headers, peer)
+
 
 @contextmanager
 def _db() -> Iterator[Session]:
@@ -102,9 +129,16 @@ def _db() -> Iterator[Session]:
         db.close()
 
 
-def _run(query: Callable[[Session], T]) -> T:
-    """Run a shared query; its expected failures become errors the model can read."""
+def _run(ctx: Context | None, query: Callable[[Session], T]) -> T:
+    """Check the traffic limits, then run a shared query; limits and expected failures become
+    errors the model can read."""
+    session_id, ip = _caller(ctx)
+    try:
+        limiter.check(session_id, ip)
+    except LimitExceeded as exc:
+        raise ToolError(str(exc)) from exc
     with _db() as db:
+        db_session.limit_statement_time(db)
         try:
             return query(db)
         except (NotFoundError, InvalidRequestError) as exc:
@@ -120,6 +154,7 @@ def find_stations(
     country: Annotated[Country | None, Field(description="Only stations in this country (no includes Svalbard).")] = None,
     measurement: Annotated[Measurement | None, Field(description="Only stations reporting this measurement.")] = None,
     limit: Annotated[int, Field(ge=1, le=20)] = 10,
+    ctx: Context | None = None,
 ) -> StationsResult:
     """Find active weather stations near a point (nearest first, with distance) and/or by name.
 
@@ -129,6 +164,7 @@ def find_stations(
     codes = COUNTRY_CODES[country] if country else None
     return StationsResult(
         stations=_run(
+            ctx,
             lambda db: stations.find_stations(
                 db, lat=lat, lon=lon, radius_km=radius_km, name=name, countries=codes, parameter=measurement, limit=limit
             )
@@ -137,10 +173,12 @@ def find_stations(
 
 
 @mcp.tool(title="Station details", annotations=READ_ONLY)
-def get_station(station_id: Annotated[UUID, Field(description="Station id from find_stations.")]) -> StationResult:
+def get_station(station_id: Annotated[UUID, Field(description="Station id from find_stations.")],
+    ctx: Context | None = None,
+) -> StationResult:
     """A station's details and, per measurement, the first and last date with data and the number
     of days with data. Use it to see what a station measures and how far back it goes."""
-    info = _run(lambda db: stations.station_info(db, station_id))
+    info = _run(ctx, lambda db: stations.station_info(db, station_id))
     return StationResult(**info.model_dump())
 
 
@@ -151,12 +189,13 @@ def get_observations(
     start: Annotated[dt.date | None, Field(description="First date (YYYY-MM-DD). Default: 29 days before end.")] = None,
     end: Annotated[dt.date | None, Field(description="Last date. Default: the latest date with data.")] = None,
     summary_only: Annotated[bool, Field(description="Leave out the daily values, keep the summaries.")] = False,
+    ctx: Context | None = None,
 ) -> ObservationsResult:
     """Daily values at one station for up to 366 days, with a summary per measurement: min and max
     (with dates), mean, and for rainfall the total and days with at least 1 mm (snow: days with at
     least 1 cm). Flagged (suspect) values are listed but left out of the summary. Missing days have
     has_data false; a date without a row wasn't reported at all."""
-    result = _run(lambda db: stations.observations(db, station_id, list(dict.fromkeys(measurements)), start, end))
+    result = _run(ctx, lambda db: stations.observations(db, station_id, list(dict.fromkeys(measurements)), start, end))
     if summary_only:
         for series in result.series:
             series.values = []
@@ -173,6 +212,7 @@ def get_day_overview(
     max_lon: Annotated[float | None, Field(ge=-180, le=180, description="East edge.")] = None,
     max_lat: Annotated[float | None, Field(ge=-90, le=90, description="North edge.")] = None,
     top: Annotated[int, Field(ge=1, le=25, description="How many stations to list.")] = 10,
+    ctx: Context | None = None,
 ) -> DayOverviewResult:
     """One date across a country, an area (all four edges) or everywhere: how many stations
     reported, the extremes, mean and median, and the highest stations (for temperature also the
@@ -181,7 +221,7 @@ def get_day_overview(
     if any(e is not None for e in edges) and any(e is None for e in edges):
         raise ToolError("Give all four area edges (min_lon, min_lat, max_lon, max_lat), or none.")
     bbox = edges if all(e is not None for e in edges) else None
-    result = _run(lambda db: overview.day_overview(db, date, measurement, country=country, bbox=bbox, top=top))
+    result = _run(ctx, lambda db: overview.day_overview(db, date, measurement, country=country, bbox=bbox, top=top))
     return DayOverviewResult(**result.model_dump())
 
 
@@ -203,6 +243,7 @@ def get_rankings(
     country: Country | None = None,
     include_gaps: Annotated[bool, Field(description="Also rank stations with data on under 90% of the days.")] = False,
     limit: Annotated[int, Field(ge=1, le=50)] = 15,
+    ctx: Context | None = None,
 ) -> RankingsResult:
     """Top stations for a period ending on a date, as in the app's Top 15: wettest (rain totals),
     deepest snow or most snow days, and warmest or coldest (temperature minimum and maximum rank by
@@ -216,14 +257,14 @@ def get_rankings(
             limit=limit, min_coverage=0 if include_gaps else 0.9, order=order,
         )
 
-    return RankingsResult(**_run(query).model_dump())
+    return RankingsResult(**_run(ctx, query).model_dump())
 
 
 @mcp.tool(title="Data freshness", annotations=READ_ONLY)
-def get_data_status() -> DataStatusResult:
+def get_data_status(ctx: Context | None = None) -> DataStatusResult:
     """When each source (fmi Finland, met Norway, smhi Sweden, dmi Denmark/Greenland/Faroe Islands,
     imo Iceland, kaa Estonia) was last fetched, and its latest date with data per measurement."""
-    return DataStatusResult(**_run(overview.data_status).model_dump())
+    return DataStatusResult(**_run(ctx, overview.data_status).model_dump())
 
 
 @mcp.resource(
