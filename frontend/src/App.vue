@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   NotFoundError,
@@ -39,6 +39,16 @@ const status = useStatus()
 // Phones get a compact top box (short labels, one status line) and List / Top 15 as a bottom sheet.
 const mobile = useMobile()
 const sheetExpanded = ref(false)
+// On phones the map starts below the top box, so the far north (Svalbard, Greenland) isn't
+// hidden under it when zoomed out: the map can't pan past its northern edge (about 85° N).
+const topBox = ref<HTMLElement>()
+const topBoxHeight = ref(0)
+let topBoxObserver: ResizeObserver | undefined
+onMounted(() => {
+  topBoxObserver = new ResizeObserver(([entry]) => (topBoxHeight.value = Math.round(entry.target.getBoundingClientRect().height)))
+  if (topBox.value) topBoxObserver.observe(topBox.value)
+})
+onBeforeUnmount(() => topBoxObserver?.disconnect())
 const measurementOptions = computed(() =>
   (['precipitation', 'snow_depth', 'temperature'] as Measurement[]).map((value) => ({
     value,
@@ -153,7 +163,11 @@ function selectStation(id: string | null) {
 </script>
 
 <template>
-  <main class="app" :class="{ 'has-panel': selectedStation, 'has-sheet': view !== 'map', 'sheet-expanded': sheetExpanded }">
+  <main
+    class="app"
+    :class="{ 'has-panel': selectedStation, 'has-sheet': view !== 'map', 'sheet-expanded': sheetExpanded }"
+    :style="{ '--top-box': `${topBoxHeight}px` }"
+  >
     <RainMap
       :stations="stationRows"
       :selected-id="stationId"
@@ -165,7 +179,7 @@ function selectStation(id: string | null) {
     />
 
     <div class="left-column">
-      <header class="top panel">
+      <header ref="topBox" class="top panel">
         <div class="title-row">
           <div>
             <h1>{{ mobile ? t.titleShort : t.title }}</h1>
@@ -400,6 +414,10 @@ h1 {
     bottom: auto;
     width: auto;
     max-height: 55vh;
+  }
+  /* The map starts below the top box (8 px margin + box + 8 px gap). */
+  .app > :deep(.rain-map) {
+    top: calc(var(--top-box, 0px) + 16px);
   }
   /* Compact top box: the controls, one short status line. */
   .top {

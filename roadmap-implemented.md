@@ -4,6 +4,7 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
+| 2026-09-27 18:13 | Phones: the map starts below the top box, so Svalbard and north Greenland are visible when zoomed out (the map can't pan past about 85° N, which was hidden under the box); the opening view frames the stations in the visible area. | Show the far north on phones |
 | 2026-09-26 20:39 | Phone layout: compact top box ("Nordic Weather" on one line, About as an (i) button, Rain / Snow / Temp with Mean / Min / Max on the same row, one status line); List and Top 15 as a bottom sheet over half the screen with an expand button; ranking periods and date range on one row, the gaps option behind ⚙; legend as a "Legend" button with a colour strip, closed by default and remembered per device. Desktop unchanged. | Compact phone layout |
 | 2026-09-26 20:14 | Shared query layer (`app/services`) for the REST API and the coming MCP server: the existing endpoints now call it (unchanged behaviour), plus new queries for agents: station search near a point or by name, station coverage per measurement, observation series with summaries, a day overview per country or area, and data freshness per source. | Add shared query layer |
 | 2026-09-26 19:40 | The rankings button says "Top mean", "Top min" or "Top max" for temperature ("Top 15" for rainfall and snow depth). | Name the temperature rankings button |

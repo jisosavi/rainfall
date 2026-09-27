@@ -29,7 +29,7 @@ let overlay: MapboxOverlay | undefined
 // Keep the start view clear of the overlay panels (see App.vue layout).
 function startPadding() {
   if (window.matchMedia('(max-width: 760px)').matches) {
-    return { top: 210, bottom: 16, left: 8, right: 8 } // header card on top
+    return { top: 16, bottom: 16, left: 8, right: 8 } // the map starts below the top box
   }
   return { top: 16, bottom: 16, left: 392, right: 16 } // 360 px left column + gutters
 }
@@ -183,7 +183,7 @@ onMounted(() => {
 const STATION_ZOOM = 7
 function panelPadding() {
   if (window.matchMedia('(max-width: 760px)').matches) {
-    return { top: 60, bottom: Math.round(window.innerHeight * 0.6), left: 16, right: 16 }
+    return { top: 24, bottom: Math.round(window.innerHeight * 0.6), left: 16, right: 16 } // panel over the bottom
   }
   return { top: 40, bottom: 40, left: 392, right: 372 }
 }
