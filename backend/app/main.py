@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,11 +9,29 @@ from app.api.routes.health import router as health_router
 from app.api.routes.rankings import router as rankings_router
 from app.api.routes.stations import router as stations_router
 from app.config import get_settings
+from app.mcp_server.server import http_app as mcp_http_app
+from app.mcp_server.server import mcp, public_mcp_url
 from app.services.errors import InvalidRequestError, NotFoundError
 
 settings = get_settings()
 
-app = FastAPI(title="Rainfall API", version="0.1.0")
+mcp_app = mcp_http_app()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # The MCP session manager runs for the app's lifetime.
+    async with mcp.session_manager.run():
+        yield
+
+
+app = FastAPI(
+    title="Nordic weather observations API",
+    version="0.2.0",
+    description="Daily rainfall, snow depth and temperature at Nordic and Estonian weather stations. "
+    "For AI agents there is also an MCP server at /mcp.",
+    lifespan=lifespan,
+)
 
 # /api/stations returns ~900 stations; compress JSON responses.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -43,4 +63,8 @@ app.include_router(rankings_router)
 
 @app.get("/")
 def root():
-    return {"message": "Rainfall API"}
+    return {"message": "Nordic weather observations API", "docs": "/docs", "mcp": public_mcp_url()}
+
+
+# MCP (Streamable HTTP) at /mcp. Mounted last, so the API routes above take precedence.
+app.mount("/", mcp_app)

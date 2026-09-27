@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     smhi_archive_refresh_days: int = Field(default=130, alias="SMHI_ARCHIVE_REFRESH_DAYS")
     # MET Norway Frost API client ID (https://frost.met.no). Optional; MET is skipped without it.
     frost_client_id: str | None = Field(default=None, alias="FROST_CLIENT_ID")
+    # The address agents are told to use (MCP at <this>/mcp); change it when a custom domain is added.
+    public_base_url: str = Field(default="https://rainfall-production.up.railway.app", alias="PUBLIC_BASE_URL")
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 

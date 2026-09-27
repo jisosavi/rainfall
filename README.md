@@ -15,6 +15,7 @@ Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-impleme
 ```
 backend/
   app/api/routes/   HTTP endpoints (thin: validation and response shape)
+  app/mcp_server/   MCP server for AI agents (tools over app/services, mounted at /mcp)
   app/services/     read-only data queries shared by the REST API and the MCP server (station search, series with summaries, day overviews, rankings, data freshness)
   app/db/           SQLAlchemy models and session
   app/ingest/       ingestion: fmi.py (Finland), met.py (Norway), smhi.py (Sweden), dmi.py (Denmark, Greenland, Faroe Islands), imo.py (Iceland), kaa.py (Estonia), service.py (shared)
@@ -58,6 +59,7 @@ After a model change: `alembic revision --autogenerate -m "..."`. Review the gen
 | `INGEST_START_DATE` | ingest | First date loaded into an empty database. Default `2025-01-01`. |
 | `INGEST_REFETCH_DAYS` | ingest | Recent days re-fetched on every run. Default `10`. |
 | `SMHI_ARCHIVE_REFRESH_DAYS` | ingest | Days re-loaded by `--archive-refresh`. Default `130`. |
+| `PUBLIC_BASE_URL` | web | The address agents are told to use; the MCP server is at `<this>/mcp`. Default `https://rainfall-production.up.railway.app`. Change it when a custom domain is added (the Railway address keeps working). |
 | `FROST_CLIENT_ID` | ingest | MET Norway Frost client ID ([register free](https://frost.met.no/auth/requestCredentials.html)). Without it, MET is skipped. The client secret is not needed. Never commit it. |
 
 ## Before pushing
