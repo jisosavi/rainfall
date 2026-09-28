@@ -5,6 +5,7 @@ Daily rainfall, snow depth and temperature at weather stations in Finland, Norwa
 - **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI, DMI, IMO and Keskkonnaagentuur data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
+- **MCP server for AI agents:** https://rainfall-production.up.railway.app/mcp (read-only tools; e.g. a custom connector in Claude). Details in `app/mcp_server/`; a fuller guide is on the roadmap.
 
 Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-implemented.md](roadmap-implemented.md).
 
@@ -43,7 +44,7 @@ cp .env.example .env        # then edit DATABASE_URL
 pytest                      # in-memory SQLite, no database needed
 alembic upgrade head
 uvicorn app.main:app --reload
-python -m app.ingest        # load data; --source fmi|met|smhi|dmi|imo|all (default all), optional --start/--end YYYY-MM-DD
+python -m app.ingest        # load data; --source fmi|met|smhi|dmi|imo|kaa|all (default all), optional --start/--end YYYY-MM-DD
 ```
 
 After a model change: `alembic revision --autogenerate -m "..."`. Review the generated file before committing it.
@@ -83,7 +84,8 @@ One project with three services:
 - **rainfall (web):**
   - Root Directory `/backend`
   - Config file `/backend/railway.json`. Railway doesn't look for it under the root directory, so the full path must be set.
-  - Variables: `DATABASE_URL`, `CORS_ORIGINS`, `PORT`, `APP_ENV`
+  - Variables: `DATABASE_URL`, `CORS_ORIGINS`, `PORT`, `APP_ENV`; optional `PUBLIC_BASE_URL` and the traffic limits (see Environment variables), which have working defaults
+  - Serves the REST API and the MCP server (`/mcp`). One uvicorn process: the MCP sessions and traffic counters live in memory.
   - On start, the service runs the migrations, then uvicorn. The deploy healthcheck is `/health`, which also checks the database.
 - **rainfall-ingest (cron):**
   - Root Directory `/backend`, no config file and no healthcheck
@@ -164,10 +166,10 @@ These were verified against the live API on 2026-09-25.
   | `NaN` | missing | `NULL`, `has_data = false` |
 
   The original FMI text is kept in `raw_status`.
-- **Database rules:**
-  - `has_data` is true exactly when `precipitation_mm` has a value (check constraint)
-  - `precipitation_mm >= 0`
-  - `(station_id, date)` is unique
+- **Database rules (all sources):**
+  - `has_data` is true exactly when `value` is set (check constraint)
+  - `value >= 0`, except for temperatures (migration `0008`)
+  - `(station_id, parameter, date)` is unique
 - **Coverage:** about 189 stations since 2025, with about 172 reporting on a given day.
 
 ### MET Norway (Norway, Svalbard, Jan Mayen)
