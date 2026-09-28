@@ -133,7 +133,9 @@ def test_status_reports_last_fetch(client, seeded):
 
 
 def test_status_empty_db(client):
-    assert client.get("/api/status").json() == {"updated_at": None, "sources": {}}
+    body = client.get("/api/status").json()
+    assert (body["updated_at"], body["sources"]) == (None, {})
+    assert body["mcp_usage"]["today"] == {"calls": 0, "errors": 0, "refused": 0, "by_tool": {}}
 
 
 def test_last_data_for_station_without_data(client, seeded):

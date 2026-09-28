@@ -62,10 +62,19 @@ class LastDataResponse(BaseModel):
     value: float | None = None
 
 
+class McpUsageDay(BaseModel):
+    calls: int = 0
+    errors: int = 0
+    refused: int = 0
+    by_tool: dict[str, int] = {}
+
+
 class StatusResponse(BaseModel):
     # When values were last fetched from the sources (by the ingestion job).
     updated_at: datetime | None
     sources: dict[str, datetime]
+    # MCP tool calls (UTC days; today's counts are stored once a minute).
+    mcp_usage: dict[str, McpUsageDay] = {}
 
 
 class HistoryValue(BaseModel):

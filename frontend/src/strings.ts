@@ -154,6 +154,8 @@ export const t = {
   aboutDeveloperPrefix: 'Developed by',
   developerName: 'Janne Isosävi',
   developerUrl: 'https://github.com/jisosavi',
+  aboutPrivacy:
+    'Privacy: the app sets no cookies. Use through AI assistants (the MCP connector) is counted per tool and day; each call is logged with an anonymous code that changes daily, and IP addresses are not stored.',
   aboutFeedbackPrefix: 'Found a problem or have an idea?',
   aboutFeedbackLink: 'Send feedback on GitHub',
   aboutSourceLink: 'Source code',

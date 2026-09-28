@@ -1,7 +1,11 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from pathlib import Path
+
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
@@ -12,9 +16,17 @@ from app.config import get_settings
 from app.limits import LimitExceeded, RestLimiter, client_ip
 from app.mcp_server.server import http_app as mcp_http_app
 from app.mcp_server.server import mcp, public_mcp_url
+from app.mcp_server.usage import usage
 from app.services.errors import InvalidRequestError, NotFoundError
 
 settings = get_settings()
+
+# App log lines (e.g. MCP calls) to stdout: Railway shows everything on stderr as errors.
+_handler = logging.StreamHandler(sys.stdout)
+_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+logging.getLogger("app").addHandler(_handler)
+logging.getLogger("app").setLevel(logging.INFO)
+logging.getLogger("app").propagate = False
 
 mcp_app = mcp_http_app()
 
@@ -24,6 +36,7 @@ async def lifespan(_: FastAPI):
     # The MCP session manager runs for the app's lifetime.
     async with mcp.session_manager.run():
         yield
+    usage.flush()  # store the last minute's MCP call counts
 
 
 app = FastAPI(
@@ -79,6 +92,25 @@ app.include_router(rankings_router)
 @app.get("/")
 def root():
     return {"message": "Nordic weather observations API", "docs": "/docs", "mcp": public_mcp_url()}
+
+
+STATIC = Path(__file__).parent / "static"
+
+
+# The raindrop icon (as in the web app), for browsers and for MCP clients showing the connector.
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(STATIC / "icon-32.png", media_type="image/png")
+
+
+@app.get("/icon.svg", include_in_schema=False)
+def icon_svg():
+    return FileResponse(STATIC / "icon.svg", media_type="image/svg+xml")
+
+
+@app.get("/icon-512.png", include_in_schema=False)
+def icon_png():
+    return FileResponse(STATIC / "icon-512.png", media_type="image/png")
 
 
 # MCP (Streamable HTTP) at /mcp. Mounted last, so the API routes above take precedence.

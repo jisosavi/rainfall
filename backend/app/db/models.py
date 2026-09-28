@@ -108,3 +108,16 @@ class QcState(Base):
     parameter: Mapped[str] = mapped_column(String(32), primary_key=True)
     rules_version: Mapped[int] = mapped_column(nullable=False)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class McpUsage(Base):
+    """MCP tool calls per UTC day and tool (no caller data), written by app.mcp_server.usage."""
+
+    __tablename__ = "mcp_usage"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    tool: Mapped[str] = mapped_column(String(64), primary_key=True)
+    calls: Mapped[int] = mapped_column(nullable=False, default=0)  # answered (ok or error)
+    errors: Mapped[int] = mapped_column(nullable=False, default=0)  # answered with an error (bad input, not found…)
+    refused: Mapped[int] = mapped_column(nullable=False, default=0)  # stopped by a traffic limit
+    total_ms: Mapped[int] = mapped_column(nullable=False, default=0)  # summed duration of answered calls

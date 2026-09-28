@@ -15,13 +15,14 @@ from uuid import UUID
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import ToolAnnotations
+from mcp.types import Icon, ToolAnnotations
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import session as db_session
-from app.limits import LimitExceeded, McpLimiter, McpLimits, client_ip
+from app.limits import McpLimiter, McpLimits
+from app.mcp_server.usage import make_middleware
 from app.schemas.queries import DataStatus, DayOverview, Observations, StationInfo, StationSummary
 from app.services import overview, rankings, stations
 from app.services.errors import InvalidRequestError, NotFoundError
@@ -53,13 +54,22 @@ How to use:
 - Credit the data when you publish it (see each result's attribution). Full rules: resource
   weather://conventions."""
 
+_BASE_URL = get_settings().public_base_url.rstrip("/")
+
 mcp = MCPServer(
     name="nordic-weather",
     title="Nordic weather observations",
     description="Daily rainfall, snow depth and temperature at Nordic and Estonian weather stations.",
     instructions=INSTRUCTIONS,
     website_url="https://isosavi.com/test/rainfall/",
+    # The raindrop, as in the web app; clients such as Claude show it next to the connector.
+    icons=[
+        Icon(src=f"{_BASE_URL}/icon.svg", mime_type="image/svg+xml", sizes=["any"]),
+        Icon(src=f"{_BASE_URL}/icon-512.png", mime_type="image/png", sizes=["512x512"]),
+    ],
     version="1.0.0",
+    # Limits and usage tracking; the lambda reads `limiter` at call time (tests replace it).
+    middleware=[make_middleware(lambda: limiter)],
 )
 
 
@@ -107,19 +117,6 @@ limiter = McpLimiter(
 )
 
 
-def _caller(ctx: Context | None) -> tuple[str | None, str | None]:
-    """(MCP session id, client IP) of the current request, when known (not for in-process calls)."""
-    if ctx is None:
-        return None, None
-    try:
-        headers = ctx.headers or {}
-        request = ctx.request_context.request
-    except (ValueError, AttributeError, LookupError):
-        return None, None
-    peer = getattr(getattr(request, "client", None), "host", None)
-    return headers.get("mcp-session-id"), client_ip(headers, peer)
-
-
 @contextmanager
 def _db() -> Iterator[Session]:
     db = db_session.SessionLocal()
@@ -130,13 +127,8 @@ def _db() -> Iterator[Session]:
 
 
 def _run(ctx: Context | None, query: Callable[[Session], T]) -> T:
-    """Check the traffic limits, then run a shared query; limits and expected failures become
-    errors the model can read."""
-    session_id, ip = _caller(ctx)
-    try:
-        limiter.check(session_id, ip)
-    except LimitExceeded as exc:
-        raise ToolError(str(exc)) from exc
+    """Run a shared query; expected failures become errors the model can read. (Traffic limits
+    are checked before the tool runs, in app.mcp_server.usage.)"""
     with _db() as db:
         db_session.limit_statement_time(db)
         try:

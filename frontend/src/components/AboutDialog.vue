@@ -104,6 +104,7 @@ function onClick(event: MouseEvent) {
           <a :href="t.codeLicenceUrl" target="_blank" rel="noopener">{{ t.aboutCodeLicenceLink }}</a
           >{{ t.aboutCodeLicenceSuffix }}
         </p>
+        <p>{{ t.aboutPrivacy }}</p>
         <p>
           {{ t.aboutFeedbackPrefix }}
           <a :href="t.feedbackUrl" target="_blank" rel="noopener">{{ t.aboutFeedbackLink }}</a>
