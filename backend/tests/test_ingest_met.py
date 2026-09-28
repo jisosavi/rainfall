@@ -132,6 +132,14 @@ def test_snow_depth_no_date_shift_and_only_reported_days():
     assert obs_request.url.params["timeresolutions"] == "P1D"
 
 
+def test_tidy_station_names():
+    assert met._tidy("SAMNANGER II") == "Samnanger II"
+    assert met._tidy("BØ I VESTERÅLEN III") == "Bø i Vesterålen III"
+    assert met._tidy("BREKKE I SOGN") == "Brekke i Sogn"
+    assert met._tidy("FV35 HEMSDALEN") == "Fv35 Hemsdalen"
+    assert met._tidy("OSLO - BLINDERN") == "Oslo - Blindern"
+
+
 def test_tidy_owner():
     # Real Frost station holders.
     assert met.tidy_owner(["STATENS VEGVESEN"]) == "Statens vegvesen"

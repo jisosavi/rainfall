@@ -78,9 +78,22 @@ def make_client(client_id: str) -> httpx.Client:
     return httpx.Client(auth=(client_id, ""), timeout=120, headers={"User-Agent": USER_AGENT})
 
 
+_ROMAN = {"II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"}
+
+
 def _tidy(text: str | None) -> str | None:
-    """Frost names are upper case ("HVALER - BREKKE"); show them as "Hvaler - Brekke"."""
-    return text.strip().title() if text and text.strip() else None
+    """Frost names are upper case ("HVALER - BREKKE"); show them as "Hvaler - Brekke". Roman
+    numerals stay upper case ("Samnanger II"), and the preposition "i" inside a name stays lower
+    case ("Brekke i Sogn", "Bø i Vesterålen")."""
+    if not text or not text.strip():
+        return None
+    words = text.strip().title().split(" ")
+    for index, word in enumerate(words):
+        if word.upper() in _ROMAN:
+            words[index] = word.upper()
+        elif word == "I" and 0 < index < len(words) - 1:
+            words[index] = "i"
+    return " ".join(words)
 
 
 # Frost station holders are upper case ("STATENS VEGVESEN", "MET.NO"). Keep acronyms, write
