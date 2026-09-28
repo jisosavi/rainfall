@@ -129,6 +129,30 @@ def check_sources(report: Report, readme: str) -> None:
         report.fail(f"About popup lists '{source}', which isn't an ingestion source")
 
 
+def check_mcp(report: Report, readme: str) -> None:
+    report.section("MCP server (tools and address)")
+    server = read(BACKEND / "app/mcp_server/server.py")
+    tools = re.findall(r"@mcp\.tool\([^)]*\)\s*\ndef (\w+)\(", server)
+    if not tools:
+        report.fail("couldn't find @mcp.tool functions in backend/app/mcp_server/server.py")
+    guide = readme.split("## Using with AI agents", 1)[1].split("\n## ", 1)[0] if "## Using with AI agents" in readme else ""
+    if not guide:
+        report.fail("README has no 'Using with AI agents' section")
+    for tool in tools:
+        if f"`{tool}`" in guide:
+            report.ok(f"tool {tool}")
+        else:
+            report.fail(f"MCP tool {tool} isn't in the README's 'Using with AI agents' table")
+    # The connector address shown in the About dialog should match the documented one.
+    strings = read(FRONTEND / "src/strings.ts")
+    about = re.search(r"mcpUrl:\s*'([^']+)'", strings)
+    documented = re.search(r"```\n(https://\S+/mcp)\n```", guide)
+    if about and documented and about.group(1) == documented.group(1):
+        report.ok(f"MCP address {about.group(1)}")
+    else:
+        report.fail("the MCP address in frontend/src/strings.ts (mcpUrl) differs from the README's")
+
+
 def check_cli(report: Report, readme: str) -> None:
     report.section("Ingestion command options (python -m app.ingest)")
     main = read(BACKEND / "app/ingest/__main__.py")
@@ -228,6 +252,7 @@ def main() -> int:
     check_routes(report, readme)
     check_migrations(report, readme, implemented)
     check_sources(report, readme)
+    check_mcp(report, readme)
     check_cli(report, readme)
     check_schedule(report, readme)
     check_implemented_log(report, implemented)

@@ -4,7 +4,6 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 
 ## Now
 
-- [ ] MCP phase 6, docs: a README section "Using with AI agents" (Claude connector setup, use from other agents over MCP or REST/OpenAPI, limits, attribution), `llms.txt` at the API root, a short "Use with AI assistants" paragraph with the connector URL in the About dialog, and the docs check extended so every MCP tool is documented.
 - [ ] Estonia: check whether the agency's API pauses at weekends (no new data after 25 Sept 02 UTC, a Friday, as of Monday 28 Sept morning). If it's a pattern, say so in the About dialog.
 
 ## Next

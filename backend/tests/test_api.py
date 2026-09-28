@@ -146,3 +146,11 @@ def test_last_data_for_station_without_data(client, seeded):
     assert (body["date"], body["value"], body["unit"]) == ("2025-12-31", 1.2, "mm")
     assert client.get(f"/api/stations/{helsinki}/last-data").json()["date"] == "2026-09-24"
     assert client.get(f"/api/stations/{uuid4()}/last-data").status_code == 404
+
+
+def test_agent_entry_points(client):
+    root = client.get("/").json()
+    assert root["mcp"].endswith("/mcp") and root["llms_txt"] == "/llms.txt"
+    text = client.get("/llms.txt").text
+    assert text.startswith("# Nordic weather observations") and "get_rankings" in text and root["mcp"] in text
+    assert client.get("/favicon.ico").headers["content-type"] == "image/png"

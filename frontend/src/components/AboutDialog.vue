@@ -9,6 +9,18 @@ const RUNS_UTC: Array<[number, number]> = [
   [13, 15],
 ]
 const pad = (n: number) => String(n).padStart(2, '0')
+
+// The MCP address, one tap to copy (the clipboard can be unavailable, e.g. over plain http).
+const copied = ref(false)
+async function copyMcpUrl() {
+  try {
+    await navigator.clipboard.writeText(t.mcpUrl)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 2000)
+  } catch {
+    copied.value = false
+  }
+}
 const localTime = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' })
 function runTimes() {
   const today = new Date()
@@ -90,6 +102,18 @@ function onClick(event: MouseEvent) {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section aria-labelledby="about-agents">
+        <h3 id="about-agents">{{ t.aboutAgentsHeading }}</h3>
+        <p>{{ t.aboutAgents }}</p>
+        <p class="mcp-url">
+          <code>{{ t.mcpUrl }}</code>
+          <button type="button" class="small" @click="copyMcpUrl">{{ copied ? t.copied : t.copy }}</button>
+        </p>
+        <p>
+          <a :href="t.agentsGuideUrl" target="_blank" rel="noopener">{{ t.aboutAgentsMore }}</a>
+        </p>
       </section>
 
       <section aria-labelledby="about-project">
@@ -213,5 +237,18 @@ td:first-child {
 }
 a {
   color: var(--link);
+}
+.mcp-url {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mcp-url code {
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--surface-raised);
+  word-break: break-all;
 }
 </style>

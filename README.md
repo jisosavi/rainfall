@@ -5,7 +5,7 @@ Daily rainfall, snow depth and temperature at weather stations in Finland, Norwa
 - **Backend:** FastAPI + PostgreSQL on Railway. It serves the API and loads FMI, MET Norway, SMHI, DMI, IMO and Keskkonnaagentuur data twice a day.
 - **Frontend:** Vue 3 + MapLibre + deck.gl. It's a static site, uploaded by hand to `/test/rainfall/` on isosavi.com.
 - **API:** https://rainfall-production.up.railway.app (interactive docs at `/docs`)
-- **MCP server for AI agents:** https://rainfall-production.up.railway.app/mcp (read-only tools; e.g. a custom connector in Claude). Details in `app/mcp_server/`; a fuller guide is on the roadmap.
+- **MCP server for AI agents:** https://rainfall-production.up.railway.app/mcp (read-only tools, e.g. as a custom connector in Claude). See [Using with AI agents](#using-with-ai-agents).
 
 Plans are in [roadmap.md](roadmap.md), and completed work is in [roadmap-implemented.md](roadmap-implemented.md).
 
@@ -74,7 +74,7 @@ After a model change: `alembic revision --autogenerate -m "..."`. Review the gen
 python3 scripts/check_docs.py
 ```
 
-It checks that the docs still match the code: every setting, API endpoint, migration, data source and command option is documented; the README cron schedule matches the times in the About popup; commit titles in `roadmap-implemented.md` exist and recent feature commits are logged; no finished items remain in `roadmap.md`; relative links work. It uses only the Python standard library. It exits with 1 on any FAIL; add `--strict` to fail on warnings too.
+It checks that the docs still match the code: every setting, API endpoint, migration, data source, MCP tool and command option is documented (and the About popup shows the documented MCP address); the README cron schedule matches the times in the About popup; commit titles in `roadmap-implemented.md` exist and recent feature commits are logged; no finished items remain in `roadmap.md`; relative links work. It uses only the Python standard library. It exits with 1 on any FAIL; add `--strict` to fail on warnings too.
 
 ## Deployment (Railway)
 
@@ -119,6 +119,45 @@ npm run build    # type-checks, then writes frontend/dist/
 If the site moves to a new path, change `VITE_BASE`. If it moves to a new domain, also add that origin to the backend's `CORS_ORIGINS`.
 
 **Local backend:** to run the dev server against a local backend, use `DEV_API_PROXY=http://localhost:8000 npm run dev`.
+
+## Using with AI agents
+
+The data is also available to AI assistants and agents through an MCP server (Model Context Protocol) at:
+
+```
+https://rainfall-production.up.railway.app/mcp
+```
+
+It is open (no account or key), read-only, and uses Streamable HTTP. It supports the current protocol version (2026-07-28) and earlier, session-based ones.
+
+**Claude (Desktop, web, mobile):** Settings → Connectors → *Add custom connector*, name it e.g. "Nordic weather observations" and paste the URL above. Leave the OAuth settings empty. Then ask e.g. "How cold did it get in Lapland last week?" or "Which Norwegian station has had the most rain this year?"
+
+**Claude Code:** `claude mcp add --transport http nordic-weather https://rainfall-production.up.railway.app/mcp`
+
+**Other MCP clients and agent frameworks** (OpenAI Agents SDK, LangChain / LangGraph MCP adapters, Cursor, VS Code…): add a remote MCP server with the URL above and transport "streamable-http" (sometimes called "http").
+
+**Without MCP:** the REST API below does the same over plain HTTP, described in OpenAPI at `/openapi.json` (interactive at `/docs`). `/llms.txt` summarises both for agents that browse.
+
+### Tools
+
+All tools are read-only. Results are structured JSON (with an output schema) and carry the data attribution.
+
+| Tool | Answers |
+|---|---|
+| `find_stations` | Stations near a point (`lat`, `lon`, `radius_km`, nearest first with distance) or by name or municipality; optionally one country and a measurement. Height, owner and the measurements each station reports. |
+| `get_station` | One station's details and, per measurement, the first and last date with data. |
+| `get_observations` | Daily values for one or more measurements at a station, up to 366 days, each with a summary (min and max with dates, mean, rainfall total, days with at least 1 mm or 1 cm). `summary_only` leaves out the daily values. |
+| `get_day_overview` | One date in a country, an area (four edges) or everywhere: stations reporting, extremes, mean, median, highest (and for temperature lowest) stations. |
+| `get_rankings` | As the app's Top 15: wettest, deepest snow, snow days, warmest or coldest over a period, in a country or an area that can cross borders (e.g. Lapland). Extremes carry the date. |
+| `get_data_status` | Latest date per source and measurement, and when each was last fetched. |
+
+Also a resource `weather://conventions` (the day windows, missing vs zero, flags and licences in one page) and a prompt `weather_summary`. The server's instructions tell agents the essentials: rainfall day D is 06 UTC on D to 06 UTC on D+1, temperature min/max 18–18 UTC and the mean 00–24 UTC, 0 is a real value, flagged values are left out of summaries and rankings, and yesterday's data appears after the morning run (Estonia's rainfall a day later, Iceland's 3–4 days later).
+
+### Limits, privacy and attribution
+
+- **Limits:** 60 tool calls a minute per session (clients with sessions), 60 a minute per IP (1,000 for Anthropic's connector range), and a pause for everyone for 15 minutes above 1,200 calls a minute in total, answered with a message saying when to retry. See `MCP_*` under Environment variables.
+- **Privacy:** each call is logged with the tool, its arguments, duration, outcome and an anonymous caller code (a hash of the IP with a salt that changes daily and is kept only in memory). Counts per tool and day go to `mcp_usage` and `/api/status`. IP addresses are not stored.
+- **Attribution:** the data is CC BY 4.0 (MET Norway also NLOD 2.0). When publishing results, credit: "Data: FMI, MET Norway, SMHI, DMI, IMO and Keskkonnaagentuur (CC BY 4.0), processed by Nordic weather observations (https://isosavi.com/test/rainfall/)." Every tool result includes this text.
 
 ## API
 
