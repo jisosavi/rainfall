@@ -74,3 +74,15 @@ async def test_errors_are_readable(tools_db, nordic):
     assert area.is_error and "all four" in area.content[0].text
     wrong_period = await call("get_rankings", measurement="temp_min", period="winter_max", date=date.today().isoformat())
     assert wrong_period.is_error and "doesn't apply" in wrong_period.content[0].text
+
+
+async def test_rankings_in_an_area_across_borders(tools_db, nordic):
+    day = nordic["day"].isoformat()
+    # Around the Gulf of Finland: Helsinki and Tallinn, not Vantaa (north of 60.25) or Oslo.
+    gulf = (await call(
+        "get_rankings", measurement="temp_min", period="now", date=day, order="coldest",
+        min_lon=24.0, min_lat=59.0, max_lon=25.5, max_lat=60.25,
+    )).structured_content
+    assert [s["name"] for s in gulf["stations"]] == ["Helsinki Kaisaniemi", "Tallinn-Harku"]
+    half = await call("get_rankings", measurement="temp_min", period="now", date=day, min_lon=24.0)
+    assert half.is_error and "all four" in half.content[0].text

@@ -90,8 +90,10 @@ def rankings(
     limit: int = 15,
     min_coverage: float = 0.9,
     order: str = "warmest",
+    bbox: tuple[float, float, float, float] | None = None,
 ) -> RankingsResponse:
-    """Top `limit` stations for `period` ending on `date_value` (see the module docstring)."""
+    """Top `limit` stations for `period` ending on `date_value` (see the module docstring),
+    optionally only in an area: bbox = (min_lon, min_lat, max_lon, max_lat)."""
     temperature = parameter.startswith("temp_")
     periods = TEMP_PERIODS if temperature else SNOW_PERIODS if parameter == SNOW_DEPTH else RAIN_PERIODS
     if period not in periods:
@@ -130,6 +132,11 @@ def rankings(
     )
     if country is not None:
         query = query.where(Station.country.in_(COUNTRY_CODES[country]))
+    if bbox is not None:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        if min_lon >= max_lon or min_lat >= max_lat:
+            raise InvalidRequestError("bbox must be min_lon, min_lat, max_lon, max_lat.")
+        query = query.where(Station.lon.between(min_lon, max_lon), Station.lat.between(min_lat, max_lat))
     # One day's value or an extreme needs no coverage; totals, counts and averages do.
     needs_coverage = not extreme
     if not temperature:

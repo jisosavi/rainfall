@@ -45,7 +45,8 @@ Iceland and Estonia, from 2025-01-01, updated twice a day.
 How to use:
 - Find stations with find_stations (near a lat/lon, or by name), then get_observations for their
   daily values and a summary. For a country or area on one day use get_day_overview; for
-  "wettest / coldest / deepest snow" questions use get_rankings.
+  "wettest / coldest / deepest snow" questions use get_rankings. Both take an area (four edges) for
+  regions that aren't countries or cross borders, e.g. Lapland.
 - Check get_data_status for the latest available dates before saying data is missing: yesterday's
   rainfall appears after 06 UTC today, Estonia's a day later, Iceland's 3-4 days later.
 - Day D for rainfall is 06 UTC on D to 06 UTC on D+1; temperature min/max run 18 UTC on D-1 to 18 UTC
@@ -137,6 +138,15 @@ def _run(ctx: Context | None, query: Callable[[Session], T]) -> T:
             raise ToolError(str(exc)) from exc
 
 
+def _area(min_lon, min_lat, max_lon, max_lat) -> tuple[float, float, float, float] | None:
+    edges = (min_lon, min_lat, max_lon, max_lat)
+    if all(e is None for e in edges):
+        return None
+    if any(e is None for e in edges):
+        raise ToolError("Give all four area edges (min_lon, min_lat, max_lon, max_lat), or none.")
+    return edges
+
+
 @mcp.tool(title="Find weather stations", annotations=READ_ONLY)
 def find_stations(
     lat: Annotated[float | None, Field(ge=-90, le=90, description="Latitude of a place to search near.")] = None,
@@ -209,10 +219,7 @@ def get_day_overview(
     """One date across a country, an area (all four edges) or everywhere: how many stations
     reported, the extremes, mean and median, and the highest stations (for temperature also the
     lowest). Flagged values are counted but left out of the statistics."""
-    edges = (min_lon, min_lat, max_lon, max_lat)
-    if any(e is not None for e in edges) and any(e is None for e in edges):
-        raise ToolError("Give all four area edges (min_lon, min_lat, max_lon, max_lat), or none.")
-    bbox = edges if all(e is not None for e in edges) else None
+    bbox = _area(min_lon, min_lat, max_lon, max_lat)
     result = _run(ctx, lambda db: overview.day_overview(db, date, measurement, country=country, bbox=bbox, top=top))
     return DayOverviewResult(**result.model_dump())
 
@@ -235,18 +242,24 @@ def get_rankings(
     country: Country | None = None,
     include_gaps: Annotated[bool, Field(description="Also rank stations with data on under 90% of the days.")] = False,
     limit: Annotated[int, Field(ge=1, le=50)] = 15,
+    min_lon: Annotated[float | None, Field(ge=-180, le=180, description="Optional area (e.g. a region such as Lapland): west edge.")] = None,
+    min_lat: Annotated[float | None, Field(ge=-90, le=90, description="South edge.")] = None,
+    max_lon: Annotated[float | None, Field(ge=-180, le=180, description="East edge.")] = None,
+    max_lat: Annotated[float | None, Field(ge=-90, le=90, description="North edge.")] = None,
     ctx: Context | None = None,
 ) -> RankingsResult:
     """Top stations for a period ending on a date, as in the app's Top 15: wettest (rain totals),
     deepest snow or most snow days, and warmest or coldest (temperature minimum and maximum rank by
     the period's extreme with the date it happened; the mean by the period's average). Flagged values
-    don't count. Rain and snow stations scoring 0 aren't listed."""
+    don't count. Rain and snow stations scoring 0 aren't listed. For a region that isn't a country
+    (Lapland, western Norway, Skåne…) give its area as four edges; it can span countries."""
+    bbox = _area(min_lon, min_lat, max_lon, max_lat)
 
     def query(db: Session) -> RankingsResponse:
         day = date or stations.resolve_date(db, None, measurement)
         return rankings.rankings(
             db, period=period, date_value=day, parameter=measurement, country=country,
-            limit=limit, min_coverage=0 if include_gaps else 0.9, order=order,
+            limit=limit, min_coverage=0 if include_gaps else 0.9, order=order, bbox=bbox,
         )
 
     return RankingsResult(**_run(ctx, query).model_dump())
