@@ -13,7 +13,7 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - [ ] Longer history in the station panel, e.g. a month or year view (the API allows up to 366 days)
 - [ ] Monitoring: get alerted when the ingestion job fails or data stops arriving, e.g. a check that the latest date is at most 2 days old
 - [ ] Load older history if wanted: `python -m app.ingest --start YYYY-MM-DD`
-- [ ] Custom domain for the API and MCP server, e.g. `weather.agents.isosavi.com`: a CNAME at the domain provider (Louhi) to the Railway target, the domain in Railway, then `PUBLIC_BASE_URL`. The Railway address keeps working, so saved connectors don't break.
+- [ ] Custom domain for the API and MCP server, e.g. `weather.agents.isosavi.com`: add the domain in Railway, a CNAME record to Railway's target in the domain's DNS, then update `PUBLIC_BASE_URL` and the address in the README and About dialog (the docs check compares them). The Railway address keeps working, so saved connectors don't break.
 - [ ] Phones: frame the map to the visible area between the top box and an open List / Top 15 sheet (now the sheet can cover the stations being ranked).
 
 ## Later / ideas
