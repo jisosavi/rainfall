@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.db.models import DailyValue, Station
 from app.ingest import fmi
-from app.ingest.common import date_chunks
+from app.ingest.common import StationSeries, date_chunks
 from app.ingest.fmi import normalize, parse_timevaluepair
 from app.ingest.service import default_range, run_ingest, store_series
 
@@ -125,3 +125,17 @@ def test_default_range_backfills_a_newly_added_parameter(db):
     assert default_range(db, "fmi", date(2025, 1, 1), 10, today, parameters=("precipitation",)) == (date(2026, 9, 12), date(2026, 9, 24))
     # Snow has no data yet, so the whole history is fetched (rain is simply re-fetched too).
     assert default_range(db, "fmi", date(2025, 1, 1), 10, today, parameters=both) == (date(2025, 1, 1), date(2026, 9, 24))
+
+
+def test_default_range_ignores_an_out_of_season_measurement(db):
+    today = date(2026, 9, 25)
+    rain = parse_timevaluepair(FIXTURE)  # rainfall up to 2026-09-22
+    snow = [StationSeries(
+        source="fmi", source_station_id=rain[0].source_station_id, name=rain[0].name, region=None,
+        lat=rain[0].lat, lon=rain[0].lon, country="FI", parameter="snow_depth",
+        values=[(date(2026, 5, 4), normalize("0.0"))],  # last snow report in May
+    )]
+    store_series(db, rain + snow)
+    both = ("precipitation", "snow_depth")
+    # 10 days before the newest data, not back to May.
+    assert default_range(db, "fmi", date(2025, 1, 1), 10, today, parameters=both) == (date(2026, 9, 12), date(2026, 9, 24))

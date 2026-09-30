@@ -113,7 +113,12 @@ def default_range(
     parameters: tuple[str, ...] = (PRECIPITATION,),
 ) -> tuple[date, date]:
     """From `refetch_days` before this source's newest stored row to yesterday (UTC). If any of
-    the source's parameters has no data yet (e.g. a newly added one), start from `start_date`."""
+    the source's parameters has no data yet (e.g. a newly added one), start from `start_date`.
+
+    The newest row across the parameters, not the oldest: a seasonal measurement (Danish snow
+    depth stops in May) would otherwise pull the start back months, re-fetching and re-checking
+    all of summer on every run. refetch_days still covers the delayed ones (Iceland's rainfall
+    3-4 days, Estonia's 2)."""
     today = today or datetime.now(timezone.utc).date()
     end = today - timedelta(days=1)
     latest_per_parameter = [
@@ -126,7 +131,7 @@ def default_range(
     ]
     if any(latest is None for latest in latest_per_parameter):
         return start_date, end
-    return max(start_date, min(latest_per_parameter) - timedelta(days=refetch_days)), end
+    return max(start_date, max(latest_per_parameter) - timedelta(days=refetch_days)), end
 
 
 def run_ingest(session: Session, fetch_chunk: FetchChunk, start: date, end: date, label: str = "") -> int:

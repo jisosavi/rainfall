@@ -162,3 +162,37 @@ def test_implausible_values_become_missing(db):
     assert (rows[date(2026, 5, 17)].has_data, rows[date(2026, 5, 17)].value) == (False, None)
     assert rows[date(2026, 5, 17)].raw_status == "17280.0|Y|implausible"
     assert (rows[date(2026, 5, 18)].has_data, rows[date(2026, 5, 18)].value) == (True, 140.0)  # heavy but real
+
+
+def failing_client(fail_ids):
+    """Like mock_client, but the given stations' latest-months answer 500 every time."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if any(f"/station/{sid}/" in path for sid in fail_ids):
+            return httpx.Response(500)
+        if path.endswith("/parameter/5.json"):
+            return httpx.Response(200, json=PARAMETER)
+        if path.endswith(f"/station/{STOCKHOLM}/period/latest-months/data.json"):
+            return httpx.Response(200, json=LATEST)
+        return httpx.Response(404)
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_one_failing_station_is_skipped_not_fatal(monkeypatch):
+    monkeypatch.setattr(smhi.time, "sleep", lambda s: None)  # no retry pauses in tests
+    with failing_client({VA_SYD}) as client:
+        series = smhi.fetch_daily(client, date(2026, 9, 20), date(2026, 9, 24), today=date(2026, 9, 25))
+    # Stockholm is stored; the failed station gets no rows (not "missing" over its stored data).
+    assert [s.source_station_id for s in series] == [STOCKHOLM]
+
+
+def test_many_failing_stations_fail_the_source(monkeypatch):
+    monkeypatch.setattr(smhi.time, "sleep", lambda s: None)
+    with failing_client({VA_SYD, STOCKHOLM}) as client:
+        try:
+            smhi.fetch_daily(client, date(2026, 9, 20), date(2026, 9, 24), today=date(2026, 9, 25))
+        except RuntimeError as exc:
+            assert "2 of 2 stations failed" in str(exc)
+        else:
+            raise AssertionError("expected the source to fail")

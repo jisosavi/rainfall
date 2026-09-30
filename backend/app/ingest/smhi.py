@@ -188,6 +188,22 @@ def _fetch_station_values(
     return values
 
 
+# SMHI sometimes fails for single stations (a 500 error that persists through the retries).
+# Such stations are skipped for this run, keeping their stored values; only when more than
+# this share of stations fail is SMHI itself taken to be down and the source fails.
+MAX_FAILED_SHARE = 0.1
+
+
+def _fetch_or_skip(
+    client: httpx.Client, station: _Station, start: date, use_archive: bool, parameter: str
+) -> dict[date, Normalized] | None:
+    try:
+        return _fetch_station_values(client, station, start, use_archive, parameter)
+    except httpx.HTTPError as exc:
+        logger.warning("SMHI %s station %s (%s) skipped this run: %s", parameter, station.id, station.name, exc)
+        return None
+
+
 def fetch_daily(
     client: httpx.Client,
     start: date,
@@ -206,10 +222,15 @@ def fetch_daily(
     stations = stations if stations is not None else fetch_stations(client, start, end, parameter)
 
     with ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS) as pool:
-        all_values = list(pool.map(lambda s: _fetch_station_values(client, s, start, use_archive, parameter), stations))
+        all_values = list(pool.map(lambda s: _fetch_or_skip(client, s, start, use_archive, parameter), stations))
+    failed = sum(1 for values in all_values if values is None)
+    if stations and failed > max(1, MAX_FAILED_SHARE * len(stations)):
+        raise RuntimeError(f"SMHI {parameter}: {failed} of {len(stations)} stations failed")
 
     result = []
     for station, values in zip(stations, all_values):
+        if values is None:
+            continue  # failed this run: no rows, so its stored values stay as they are
         series = StationSeries(
             source=SOURCE,
             source_station_id=station.id,
