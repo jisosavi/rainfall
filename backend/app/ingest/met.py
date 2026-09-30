@@ -233,6 +233,31 @@ def fetch_values(
     return values
 
 
+# When a batch request keeps failing, its stations are tried one by one, so one bad station
+# costs only itself: it's skipped for this run and keeps its stored values. Only when more
+# than this share of stations fail is Frost itself taken to be down and the source fails.
+MAX_FAILED_SHARE = 0.1
+
+
+def _fetch_batch(
+    client: httpx.Client, batch: list[_Station], start: date, end: date, parameter: str
+) -> tuple[dict[str, dict[date, Normalized]], set[str]]:
+    """(values by station, ids of stations that failed)."""
+    try:
+        return fetch_values(client, [s.id for s in batch], start, end, parameter), set()
+    except httpx.HTTPError as exc:
+        logger.warning("Frost %s batch of %d stations failed (%s); trying them one by one", parameter, len(batch), exc)
+    values: dict[str, dict[date, Normalized]] = {}
+    failed: set[str] = set()
+    for s in batch:
+        try:
+            values.update(fetch_values(client, [s.id], start, end, parameter))
+        except httpx.HTTPError as exc:
+            logger.warning("Frost %s station %s (%s) skipped this run: %s", parameter, s.id, s.name, exc)
+            failed.add(s.id)
+    return values, failed
+
+
 def fetch_daily(
     client: httpx.Client,
     start: date,
@@ -245,10 +270,16 @@ def fetch_daily(
     active = [s for s in stations if s.valid_from <= end and (s.valid_to is None or s.valid_to >= start)]
 
     result: list[StationSeries] = []
+    failed_total = 0
     for i in range(0, len(active), STATIONS_PER_REQUEST):
         batch = active[i : i + STATIONS_PER_REQUEST]
-        values = fetch_values(client, [s.id for s in batch], start, end, parameter)
+        values, failed = _fetch_batch(client, batch, start, end, parameter)
+        failed_total += len(failed)
+        if active and failed_total > max(1, MAX_FAILED_SHARE * len(active)):
+            raise RuntimeError(f"Frost {parameter}: {failed_total} of {len(active)} stations failed")
         for s in batch:
+            if s.id in failed:
+                continue  # failed this run: no rows, so its stored values stay as they are
             series = StationSeries(
                 source=SOURCE,
                 source_station_id=s.id,

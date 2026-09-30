@@ -101,6 +101,8 @@ One project with three services:
 
 Pushing to `main` redeploys both services.
 
+**When a fetch fails.** Every request is tried 3 times (5 s and 10 s apart); "no data" answers (404, and Frost's 412) aren't failures. A single station that still fails is skipped for that run and keeps its stored values, for the sources that fetch per station or in station batches: SMHI (per station) and MET Norway (a failing batch of 100 is retried station by station). If more than 10% of a source's stations fail, the source counts as failed. FMI, DMI, IMO and KAA fetch whole countries per request, so a failure there fails that source for the run. A failed source is logged ("`<source>`: ingestion failed" with the error); the other sources and the quality check still run, what was stored before the failure is kept, and the job exits with an error, which Railway shows as *Crashed*. The next run re-fetches the last 10 days and fills the gap.
+
 ## Frontend
 
 ```sh

@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 import httpx
+import pytest
 from sqlalchemy import select
 
 from app.db.models import DailyValue, Station
@@ -150,3 +151,37 @@ def test_tidy_owner():
     assert met.tidy_owner(["TRONDHEIM KOMMUNE"]) == "Trondheim kommune"
     assert met.tidy_owner(["ukjent - sjekk tabellen person i stedet for organisation", "Private owner"]) == "Private owner"
     assert met.tidy_owner([]) is None
+
+
+def failing_client(data, bad_station):
+    """Like mock_client, but any observations request that includes bad_station answers 500."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.startswith("/observations/availableTimeSeries"):
+            return httpx.Response(200, json=data["availableTimeSeries"])
+        if path.startswith("/sources"):
+            return httpx.Response(200, json=data["sources"])
+        if path.startswith("/observations"):
+            if bad_station in request.url.params.get("sources", ""):
+                return httpx.Response(500)
+            return httpx.Response(200, json=data["observations"])
+        return httpx.Response(404)
+
+    return httpx.Client(transport=httpx.MockTransport(handler), base_url=met.FROST_URL)
+
+
+def test_failing_station_is_skipped_and_the_rest_of_its_batch_kept(monkeypatch):
+    monkeypatch.setattr(met.time, "sleep", lambda s: None)  # no retry pauses in tests
+    with failing_client(fixture(), "SN99840") as client:
+        series = met.fetch_daily(client, date(2026, 9, 14), date(2026, 9, 18))
+    # The batch failed, Oslo was fetched on its own; Svalbard is skipped (no missing rows).
+    assert {s.source_station_id for s in series} == {"SN18700"}
+    oslo = dict(series[0].values)
+    assert oslo[date(2026, 9, 15)].value == 14.9
+
+
+def test_many_failing_stations_fail_the_source(monkeypatch):
+    monkeypatch.setattr(met.time, "sleep", lambda s: None)
+    with failing_client(fixture(), "SN") as client:  # every station
+        with pytest.raises(RuntimeError, match="2 of 2 stations failed"):
+            met.fetch_daily(client, date(2026, 9, 14), date(2026, 9, 18))
