@@ -31,7 +31,7 @@ import RankingsPanel from './components/RankingsPanel.vue'
 import StationList from './components/StationList.vue'
 import StationPanel from './components/StationPanel.vue'
 
-const { date, stationId, country, parameter } = storeToRefs(useSelectionStore())
+const { date, stationId, country, parameter, background, terrain } = storeToRefs(useSelectionStore())
 const stations = useStations(date, parameter)
 const dates = useDates(parameter)
 const status = useStatus()
@@ -175,6 +175,8 @@ function selectStation(id: string | null) {
       :focus="country"
       :ranks="view === 'top' ? (rankings.data.value?.stations ?? []) : []"
       :fly-to="flyTarget"
+      v-model:background="background"
+      v-model:terrain="terrain"
       @select="selectStation"
     />
 

@@ -77,6 +77,7 @@ function onClick(event: MouseEvent) {
           </table>
         </div>
         <p class="note">{{ t.aboutStationsNote }} {{ t.aboutProcessingNote }}</p>
+        <p class="note">{{ t.aboutMaps }}</p>
       </section>
 
       <section aria-labelledby="about-updates">

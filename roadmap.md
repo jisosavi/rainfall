@@ -31,6 +31,6 @@ Pending and possible future work. Completed items move to [roadmap-implemented.m
 - Estonia, more stations: the climate API has only the 25 weather stations. The agency's live XML feed (https://www.ilmateenistus.ee/ilma_andmed/xml/observations.php, 154 stations including precipitation stations, updated every 10 minutes) has no history, so those stations could only be collected from now on (store the hourly values and build days from them).
 - Estonia, yearly corrections: the agency validates its climate data once a year, in the first quarter. Add a yearly job (like Sweden's monthly `--archive-refresh`) that re-fetches the previous year for `kaa`.
 
-- Finnish terrain base map. Check whether the extra detail helps readability.
+- National topographic maps as further backgrounds (Finland's MML maastokartta needs an API key, so through the backend or a public key; Norway's Kartverket and Estonia's Maa-amet need none; Sweden's Lantmäteriet and Denmark's SDFI need accounts). The OpenTopoMap background covers all countries already.
 - Monthly and yearly totals per station, and a map view for them
 - Move the frontend from `/test/rainfall/` to its final address, updating `VITE_BASE` and `CORS_ORIGINS`

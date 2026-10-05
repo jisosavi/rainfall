@@ -129,6 +129,12 @@ export const t = {
   stationsWithDataShort: (withData: number, total: number) => `${withData}/${total} reporting`,
   updatedShort: (when: string) => `updated ${when}`,
   legendButton: 'Legend',
+  topoButton: 'Topo',
+  topoOn: 'Back to the dark map',
+  topoOff: 'Topographic map (OpenTopoMap)',
+  terrainButton: '3D',
+  terrainOn: 'Flat map',
+  terrainOff: '3D terrain: tilt with right-drag or two fingers',
   legendClose: 'Close legend',
   sheetExpand: 'Expand',
   sheetCollapse: 'Shrink',
@@ -139,6 +145,8 @@ export const t = {
   aboutBody:
     'Nordic weather observations shows the daily rainfall, snow depth and temperature measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands, Iceland and Estonia on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
+  aboutMaps:
+    'Map backgrounds: the dark map is OpenFreeMap (OpenMapTiles, © OpenStreetMap contributors). Topo (the button above the zoom buttons) shows OpenTopoMap (map data © OpenStreetMap contributors, style © OpenTopoMap, CC BY-SA) with relief and 3D terrain from Mapterhorn, which combines national elevation models (e.g. Finland and Greenland 2 m, Iceland 10 m) with Copernicus GLO-30. Place names are in the local language.',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
   aboutStationsNote: 'Stations: number on the date and measurement shown on the map.',
