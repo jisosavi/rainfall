@@ -20,6 +20,19 @@ export const TOPO_ATTRIBUTION =
   ' | Elevation: <a href="https://mapterhorn.com/attribution" target="_blank" rel="noopener">Mapterhorn</a> (national elevation models, Copernicus GLO-30)'
 
 const SOFT_WATER = '#6fa9dc' // instead of pure blue
+const OTM_WATER = '#a3dde8'
+
+// OpenTopoMap's vector tiles cover about Europe only: west of about 20° W (most of Greenland) they
+// are empty, and the relief colouring would show the sea as green land. Sea and lakes from
+// OpenFreeMap (global OpenStreetMap data, also behind the dark map) are drawn underneath in the
+// same colour, so they show only where OpenTopoMap has no water of its own.
+const FALLBACK_WATER: maplibregl.LayerSpecification = {
+  id: 'fallback-water',
+  type: 'fill',
+  source: 'openfreemap',
+  'source-layer': 'water',
+  paint: { 'fill-color': OTM_WATER, 'fill-outline-color': OTM_WATER },
+}
 
 let demSource: InstanceType<typeof mlcontour.DemSource> | undefined
 
@@ -61,6 +74,7 @@ export function topoStyle(maplib: typeof maplibregl): maplibregl.StyleSpecificat
     }
     return layer
   })
+  layers.splice(layers.findIndex((layer) => layer.id === 'ocean'), 0, FALLBACK_WATER)
   return {
     version: 8,
     sources: {
@@ -69,6 +83,11 @@ export function topoStyle(maplib: typeof maplibregl): maplibregl.StyleSpecificat
         tiles: ['https://opentopomap.org/otm/{z}/{x}/{y}.pbf'],
         maxzoom: 14,
         attribution: TOPO_ATTRIBUTION,
+      },
+      openfreemap: {
+        type: 'vector',
+        url: 'https://tiles.openfreemap.org/planet',
+        attribution: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>',
       },
       dem: {
         type: 'raster-dem',

@@ -28,19 +28,30 @@ const emit = defineEmits<{
   'update:terrain': [terrain: boolean]
 }>()
 
-// Map buttons above the zoom control: Topo (background) and 3D (topographic only).
+// Map buttons above the zoom control: Dark and Topo (the background) and 3D (topographic only).
 class BackgroundControl implements maplibregl.IControl {
   container = document.createElement('div')
+  dark = document.createElement('button')
   topo = document.createElement('button')
   terrain = document.createElement('button')
   onAdd() {
     this.container.className = 'maplibregl-ctrl maplibregl-ctrl-group map-buttons'
-    for (const [button, label] of [[this.topo, t.topoButton], [this.terrain, t.terrainButton]] as const) {
+    const buttons = [
+      [this.dark, t.darkButton, t.darkTitle],
+      [this.topo, t.topoButton, t.topoTitle],
+      [this.terrain, t.terrainButton, ''],
+    ] as const
+    for (const [button, label, title] of buttons) {
       button.type = 'button'
       button.textContent = label
+      if (title) {
+        button.title = title
+        button.setAttribute('aria-label', title)
+      }
       this.container.appendChild(button)
     }
-    this.topo.addEventListener('click', () => emit('update:background', props.background === 'topo' ? 'dark' : 'topo'))
+    this.dark.addEventListener('click', () => emit('update:background', 'dark'))
+    this.topo.addEventListener('click', () => emit('update:background', 'topo'))
     this.terrain.addEventListener('click', () => emit('update:terrain', !props.terrain))
     this.update()
     return this.container
@@ -50,9 +61,8 @@ class BackgroundControl implements maplibregl.IControl {
   }
   update() {
     const topo = props.background === 'topo'
+    this.dark.setAttribute('aria-pressed', String(!topo))
     this.topo.setAttribute('aria-pressed', String(topo))
-    this.topo.title = topo ? t.topoOn : t.topoOff
-    this.topo.setAttribute('aria-label', this.topo.title)
     this.terrain.hidden = !topo
     this.terrain.setAttribute('aria-pressed', String(props.terrain))
     this.terrain.title = props.terrain ? t.terrainOn : t.terrainOff
@@ -232,12 +242,14 @@ onMounted(() => {
   map.addControl(backgroundControl, 'bottom-right') // added last, so it sits above the zoom buttons
   // Development only: lets automated screenshots move the camera.
   if (import.meta.env.DEV) (window as unknown as { __map?: maplibregl.Map }).__map = map
-  // On small screens the credits would cover the legend; start collapsed behind the ⓘ button.
-  map.once('load', () => {
-    if (window.matchMedia('(max-width: 760px)').matches) {
-      container.value?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
-    }
-  })
+  // Credits start collapsed behind the ⓘ button (MapLibre opens them on wide screens).
+  const collapseCredits = () => {
+    const credits = container.value?.querySelector('.maplibregl-ctrl-attrib')
+    if (!credits?.classList.contains('maplibregl-compact')) return // not shown yet
+    credits.classList.remove('maplibregl-compact-show')
+    map?.off('styledata', collapseCredits)
+  }
+  map.on('styledata', collapseCredits)
 
   // deck.gl 9.4 reads the terrain height under the map centre from map.transform (MapLibre 4);
   // MapLibre 6 no longer exposes it, so provide the values it needs from the public API.
