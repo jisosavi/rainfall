@@ -11,9 +11,12 @@ import type * as maplibregl from 'maplibre-gl'
 import mlcontour from 'maplibre-contour'
 import otmLayers from './otm-layers.json'
 
+// OpenTopoMap's required credit (https://opentopomap.org/about), in English: "Kartendaten:
+// © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung: © OpenTopoMap (CC-BY-SA)". Our
+// elevation comes from Mapterhorn rather than SRTM, so Mapterhorn is credited instead.
 export const TOPO_ATTRIBUTION =
-  'Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' +
-  ' | Map style © <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC BY-SA)' +
+  'Map data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' +
+  ' | Map display: © <a href="https://opentopomap.org/about" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA)' +
   ' | Elevation: <a href="https://mapterhorn.com/attribution" target="_blank" rel="noopener">Mapterhorn</a> (national elevation models, Copernicus GLO-30)'
 
 const SOFT_WATER = '#6fa9dc' // instead of pure blue

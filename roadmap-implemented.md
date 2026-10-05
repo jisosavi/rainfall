@@ -4,6 +4,7 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
+| 2026-10-05 12:46 | OpenTopoMap credit worded as their required attribution ("Map data: © OpenStreetMap contributors" and "Map display: © OpenTopoMap (CC-BY-SA)"), linked to opentopomap.org/about, in the map corner, About dialog and README. | Credit OpenTopoMap as they ask |
 | 2026-10-05 12:42 | The topographic map (OpenTopoMap) is now the default background; the Topo button switches to the dark map, kept in links as map=dark. | Make the topographic map the default |
 | 2026-10-05 12:23 | Topographic map background: a Topo button above the zoom buttons switches to OpenTopoMap's vector map with native place names, relief and contour lines; a 3D button (with Topo) turns on 3D terrain and tilts the view, with station circles placed on the terrain. Relief and terrain from Mapterhorn (national elevation models and Copernicus). Adapted for readability: paler elevation colouring, softer water outlines, thicker dark circle outlines and dark grey no-data rings on the light map. In links as map=topo and 3d=1; dark stays the default. | Add topographic map background |
 | 2026-09-30 11:02 | MET Norway: a Frost batch of 100 stations that keeps failing is retried station by station, so one bad station is skipped (keeping its stored values) instead of failing Norway; over 10% failing still fails the source. README: how failed fetches are handled per source. | Skip failing MET Norway stations |
