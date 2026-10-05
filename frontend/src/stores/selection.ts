@@ -31,8 +31,8 @@ export const useSelectionStore = defineStore('selection', () => {
   const initialCountry = params.get('country') as CountryFilter | null
   const country = ref<CountryFilter>(initialCountry && COUNTRY_KEYS.includes(initialCountry) ? initialCountry : 'all')
   const parameter = ref<Parameter>(SHOW[params.get('show') ?? ''] ?? seasonalDefault())
-  // Map background (dark by default) and 3D terrain (topographic background only).
-  const background = ref<'dark' | 'topo'>(params.get('map') === 'topo' ? 'topo' : 'dark')
+  // Map background (topographic by default) and 3D terrain (topographic background only).
+  const background = ref<'dark' | 'topo'>(params.get('map') === 'dark' ? 'dark' : 'topo')
   const terrain = ref(params.get('3d') === '1')
   // 3D belongs to the topographic map: back on the dark map it switches off.
   watch(background, (b) => {
@@ -45,7 +45,7 @@ export const useSelectionStore = defineStore('selection', () => {
     s ? url.searchParams.set('station', s) : url.searchParams.delete('station')
     c !== 'all' ? url.searchParams.set('country', c) : url.searchParams.delete('country')
     p !== seasonalDefault() ? url.searchParams.set('show', SHOW_KEY[p]) : url.searchParams.delete('show')
-    b === 'topo' ? url.searchParams.set('map', 'topo') : url.searchParams.delete('map')
+    b === 'dark' ? url.searchParams.set('map', 'dark') : url.searchParams.delete('map')
     b === 'topo' && t3 ? url.searchParams.set('3d', '1') : url.searchParams.delete('3d')
     window.history.replaceState(null, '', url)
   })

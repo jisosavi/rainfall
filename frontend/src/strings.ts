@@ -146,7 +146,7 @@ export const t = {
     'Nordic weather observations shows the daily rainfall, snow depth and temperature measured at weather stations in Finland, Norway, Sweden, Denmark, Greenland, the Faroe Islands, Iceland and Estonia on a map. Pick a date and a measurement, and select a station for its recent history.',
   aboutDataHeading: 'Data',
   aboutMaps:
-    'Map backgrounds: the dark map is OpenFreeMap (OpenMapTiles, © OpenStreetMap contributors). Topo (the button above the zoom buttons) shows OpenTopoMap (map data © OpenStreetMap contributors, style © OpenTopoMap, CC BY-SA) with relief and 3D terrain from Mapterhorn, which combines national elevation models (e.g. Finland and Greenland 2 m, Iceland 10 m) with Copernicus GLO-30. Place names are in the local language.',
+    'Map backgrounds: the default is OpenTopoMap (map data © OpenStreetMap contributors, style © OpenTopoMap, CC BY-SA) with relief and 3D terrain from Mapterhorn, which combines national elevation models (e.g. Finland and Greenland 2 m, Iceland 10 m) with Copernicus GLO-30; place names are in the local language. The Topo button above the zoom buttons switches to a dark map from OpenFreeMap (OpenMapTiles, © OpenStreetMap contributors).',
   aboutDataIntro: 'Observations come from the national weather services as open data:',
   aboutDataColumns: { country: 'Country', provider: 'Data provider', stations: 'Stations', licence: 'Licence' },
   aboutStationsNote: 'Stations: number on the date and measurement shown on the map.',
