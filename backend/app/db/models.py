@@ -13,6 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,6 +69,13 @@ class DailyValue(Base):
         # Also serves as the station_id index: station_id is the leading column.
         UniqueConstraint("station_id", "parameter", "date", name="uq_daily_values_station_parameter_date"),
         Index("ix_daily_values_parameter_date", "parameter", "date"),
+        # Dates with data per measurement, walked one date at a time by services.stations.available_dates.
+        Index(
+            "ix_daily_values_parameter_date_with_data", "parameter", "date",
+            postgresql_where=text("has_data"), sqlite_where=text("has_data"),
+        ),
+        # The latest fetch per station, read by services.stations.last_fetched_by_source.
+        Index("ix_daily_values_station_fetched", "station_id", "fetched_at"),
         # Rain and snow can't be negative; temperatures can.
         CheckConstraint(
             "value IS NULL OR value >= 0 OR parameter LIKE 'temp_%'", name="ck_daily_values_non_negative"

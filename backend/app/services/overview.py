@@ -11,7 +11,7 @@ from app.qc import SUSPECT_SPATIAL
 from app.schemas.queries import DataStatus, DayOverview, RankedValue, SourceStatus
 from app.services.errors import InvalidRequestError
 from app.services.rankings import COUNTRY_CODES
-from app.services.stations import stations_for_date
+from app.services.stations import last_fetched_by_source, stations_for_date
 
 MAX_TOP = 25
 FRESHNESS_WINDOW_DAYS = 60  # latest dates are looked for this far back (keeps the query on the index)
@@ -70,9 +70,7 @@ def day_overview(
 def data_status(db: Session, today: date | None = None) -> DataStatus:
     """When each source was last fetched and its latest date with data per measurement."""
     today = today or date.today()
-    fetched = dict(
-        db.execute(select(Station.source, func.max(DailyValue.fetched_at)).join(DailyValue).group_by(Station.source)).all()
-    )
+    fetched = last_fetched_by_source(db)
     latest: dict[str, dict[str, date]] = {source: {} for source in fetched}
     since = today - timedelta(days=FRESHNESS_WINDOW_DAYS)
     for parameter in PARAMETERS:

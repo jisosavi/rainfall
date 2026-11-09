@@ -24,7 +24,7 @@ backend/
   app/api/routes/rankings.py  Top 15 rankings
   migrations/       Alembic migrations
   tests/            pytest suite (runs on SQLite)
-  Dockerfile, start.sh, railway.json
+  Dockerfile, start.sh
 scripts/
   check_docs.py     docs-vs-code check to run before pushing
 frontend/
@@ -84,7 +84,7 @@ One project with three services:
   - Memory limit 0.5 GB (Settings → Replica Limits). Set it again if the service is ever recreated; see Database memory below.
 - **rainfall (web):**
   - Root Directory `/backend`
-  - Config file `/backend/railway.json`. Railway doesn't look for it under the root directory, so the full path must be set.
+  - Builds with `backend/Dockerfile` (Railway uses a Dockerfile in the root directory automatically). Deploy settings (Settings → Deploy): healthcheck path `/health`, timeout 300 s (the migrations run before uvicorn starts); restart policy on failure, 5 retries. These used to be in `backend/railway.json`; Railway stops reading such files on 1 December 2026, so they were moved to the service settings on 9 November 2026 and the file removed.
   - Variables: `DATABASE_URL`, `CORS_ORIGINS`, `PORT`, `APP_ENV`; optional `PUBLIC_BASE_URL` and the traffic limits (see Environment variables), which have working defaults
   - Serves the REST API and the MCP server (`/mcp`). One uvicorn process: the MCP sessions and traffic counters live in memory.
   - On start, the service runs the migrations, then uvicorn. The deploy healthcheck is `/health`, which also checks the database.
@@ -104,7 +104,7 @@ Pushing to `main` redeploys both services.
 
 **When a fetch fails.** Every request is tried 3 times (5 s and 10 s apart); "no data" answers (404, and Frost's 412) aren't failures. A single station that still fails is skipped for that run and keeps its stored values, for the sources that fetch per station or in station batches: SMHI (per station) and MET Norway (a failing batch of 100 is retried station by station). If more than 10% of a source's stations fail, the source counts as failed. FMI, DMI, IMO and KAA fetch whole countries per request, so a failure there fails that source for the run. A failed source is logged ("`<source>`: ingestion failed" with the error); the other sources and the quality check still run, what was stored before the failure is kept, and the job exits with an error, which Railway shows as *Crashed*. The next run re-fetches the last 10 days and fills the gap.
 
-**Database memory.** Railway bills memory by use, and it counts the operating system's file cache as the database's memory. Without a limit, Postgres grows until the whole database (about 1.3 GB, almost all `daily_values`) sits in the cache: about 1.9 GB around the clock, roughly $19 a month. Postgres itself needs only about 0.2 GB (its own settings are the defaults, `shared_buffers` 128 MB). The 0.5 GB limit makes the cache shrink to fit; the map and API read one day at a time through indexes, and the quality check reads about 12 days, so neither suffers. During an ingest run, memory rises to the limit and stays there, which is expected. If the database grows enough that Postgres starts restarting or runs slow down noticeably, raise the limit. To see the split in the Postgres service's Console, run `grep -E '^(anon|file|shmem) ' /sys/fs/cgroup/memory.stat`: `anon` is Postgres's own memory and `file` is mostly cache.
+**Database memory.** Railway bills memory by use, and it counts the operating system's file cache as the database's memory. Without a limit, Postgres grows until the whole database (about 1.3 GB, almost all `daily_values`) sits in the cache: about 1.9 GB around the clock, roughly $19 a month. Postgres itself needs only about 0.2 GB (its own settings are the defaults, `shared_buffers` 128 MB). The 0.5 GB limit makes the cache shrink to fit; the map and API read one day at a time through indexes, and the quality check reads about 12 days, so neither suffers. The data status (`/api/status`, `get_data_status`) and the date and year lists (`/api/dates`, `/api/years`) used to read every row of `daily_values` and hit the statement timeout under this limit (6 November 2026); since migration `0011` they use two indexes (the latest fetch per station; dates with data per measurement) and read a few thousand index entries instead. During an ingest run, memory rises to the limit and stays there, which is expected. If the database grows enough that Postgres starts restarting or runs slow down noticeably, raise the limit. To see the split in the Postgres service's Console, run `grep -E '^(anon|file|shmem) ' /sys/fs/cgroup/memory.stat`: `anon` is Postgres's own memory and `file` is mostly cache.
 
 ## Frontend
 

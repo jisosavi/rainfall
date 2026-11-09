@@ -4,10 +4,9 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import PRECIPITATION, DailyValue, Station
+from app.db.models import PRECIPITATION
 from app.db.session import get_db
 from app.mcp_server.usage import usage_since
 from app.schemas.station import (
@@ -91,10 +90,7 @@ def get_available_dates(
 @router.get("/status", response_model=StatusResponse)
 def get_status(db: Session = Depends(get_db)):
     """When data was last fetched, overall and per source."""
-    rows = db.execute(
-        select(Station.source, func.max(DailyValue.fetched_at)).join(DailyValue).group_by(Station.source)
-    ).all()
-    sources = {source: fetched for source, fetched in rows if fetched}
+    sources = service.last_fetched_by_source(db)
     today = datetime.now(timezone.utc).date()  # usage is counted per UTC day
     days = {today.isoformat(): "today", (today - timedelta(days=1)).isoformat(): "yesterday"}
     mcp_usage = {label: McpUsageDay() for label in days.values()}

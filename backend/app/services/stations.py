@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from threading import Lock
 from uuid import UUID
 
-from sqlalchemy import and_, extract, func, or_, select
+from sqlalchemy import Date, and_, bindparam, column, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.db.models import PARAMETERS, PRECIPITATION, SNOW_DEPTH, UNITS, DailyValue, Station
@@ -179,24 +179,43 @@ def last_data(db: Session, station_id: UUID, before: date | None, parameter: str
     )
 
 
-def available_dates(db: Session, year: int | None, parameter: str) -> list[date]:
-    query = (
-        select(DailyValue.date)
-        .where(DailyValue.parameter == parameter, DailyValue.has_data.is_(True))
-        .distinct()
-        .order_by(DailyValue.date.desc())
+# Distinct dates with data, newest first, one index probe per date (ix_daily_values_parameter_date_with_data):
+# a plain DISTINCT read every row of the measurement, about 10 s on the 0.5 GB Postgres (statement timeouts,
+# 2026-11-06). Portable SQL: it also runs on the tests' SQLite.
+_DATES_WITH_DATA = text(
+    """
+    WITH RECURSIVE d(day) AS (
+        SELECT (SELECT max(date) FROM daily_values
+                WHERE parameter = :parameter AND has_data = true AND date >= :lo AND date <= :hi)
+        UNION ALL
+        SELECT (SELECT max(date) FROM daily_values
+                WHERE parameter = :parameter AND has_data = true AND date >= :lo AND date < d.day)
+        FROM d WHERE d.day IS NOT NULL
     )
-    if year is not None:
-        query = query.where(DailyValue.date.between(date(year, 1, 1), date(year, 12, 31)))
-    return list(db.execute(query).scalars().all())
+    SELECT day FROM d WHERE day IS NOT NULL
+    """
+).bindparams(bindparam("lo", type_=Date), bindparam("hi", type_=Date)).columns(column("day", Date))
+
+
+def available_dates(db: Session, year: int | None, parameter: str) -> list[date]:
+    lo, hi = (date(year, 1, 1), date(year, 12, 31)) if year is not None else (date(1, 1, 1), date(9999, 12, 31))
+    return list(db.execute(_DATES_WITH_DATA, {"parameter": parameter, "lo": lo, "hi": hi}).scalars().all())
 
 
 def available_years(db: Session, parameter: str) -> list[int]:
-    year = extract("year", DailyValue.date)
-    rows = db.execute(
-        select(year).where(DailyValue.parameter == parameter, DailyValue.has_data.is_(True)).distinct().order_by(year)
-    ).scalars().all()
-    return [int(y) for y in rows]
+    return sorted({d.year for d in available_dates(db, None, parameter)})
+
+
+def last_fetched_by_source(db: Session) -> dict:
+    """When each source's data was last written: the latest fetched_at per station (one probe of
+    ix_daily_values_station_fetched each), then the latest per source. Grouping the join directly read every
+    daily value (/api/status timed out, 2026-11-06)."""
+    latest = (
+        select(func.max(DailyValue.fetched_at)).where(DailyValue.station_id == Station.id).correlate(Station).scalar_subquery()
+    )
+    per_station = select(Station.source.label("source"), latest.label("fetched")).subquery()
+    rows = db.execute(select(per_station.c.source, func.max(per_station.c.fetched)).group_by(per_station.c.source)).all()
+    return {source: fetched for source, fetched in rows if fetched}
 
 
 # --- Search and coverage (for agents) ---------------------------------------------------
