@@ -4,6 +4,8 @@ Completed work, newest first. Times are Finnish time (EEST, UTC+3). Pending work
 
 | When | What | Commit |
 |---|---|---|
+| 2026-11-09 09:55 | Log levels: INFO to stdout and WARNING and above to stderr in the web app and the ingest (`app/logsetup.py`), alembic to stdout, because Railway marks stderr lines as errors: normal startup lines no longer show as errors, and real errors no longer show as info. | Log levels: INFO to stdout, WARNING and above to stderr |
+| 2026-11-09 09:47 | The data status (`/api/status`, `get_data_status`) and the date and year lists (`/api/dates`, `/api/years`) read two new indexes (migration 0011) instead of every row of `daily_values`: about 10 s and statement timeouts before, about 0.2 s after. The deploy settings moved from `backend/railway.json` (no longer read by Railway from 1 Dec 2026) to the service settings, healthcheck timeout 300 s for migrations. | Index the latest fetch and the dates with data; deploy settings out of railway.json |
 | 2026-10-13 11:39 | Postgres memory limited to 0.5 GB in Railway (it was about 1.9 GB, mostly file cache), about $14 a month less; documented in the README with the reasons and how to check. | Document the Postgres memory limit |
 | 2026-10-05 12:53 | Separate Dark and Topo map buttons; map credits start collapsed behind ⓘ; sea and lakes from OpenFreeMap under the topographic map where OpenTopoMap's tiles end (most of Greenland). | Fix topographic map gaps and add a Dark button |
 | 2026-10-05 12:46 | OpenTopoMap credit worded as their required attribution ("Map data: © OpenStreetMap contributors" and "Map display: © OpenTopoMap (CC-BY-SA)"), linked to opentopomap.org/about, in the map corner, About dialog and README. | Credit OpenTopoMap as they ask |
