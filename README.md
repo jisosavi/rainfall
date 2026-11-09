@@ -88,6 +88,7 @@ One project with three services:
   - Variables: `DATABASE_URL`, `CORS_ORIGINS`, `PORT`, `APP_ENV`; optional `PUBLIC_BASE_URL` and the traffic limits (see Environment variables), which have working defaults
   - Serves the REST API and the MCP server (`/mcp`). One uvicorn process: the MCP sessions and traffic counters live in memory.
   - On start, the service runs the migrations, then uvicorn. The deploy healthcheck is `/health`, which also checks the database.
+  - Logs: INFO lines go to stdout and WARNING and above to stderr (`app/logsetup.py`, also used by the ingest; alembic logs to stdout), because Railway marks every stderr line as an error.
 - **rainfall-ingest (cron):**
   - Root Directory `/backend`, no config file and no healthcheck
   - Start Command `python -m app.ingest`

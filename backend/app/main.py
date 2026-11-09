@@ -1,5 +1,4 @@
 import logging
-import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,6 +11,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.api.routes.health import router as health_router
 from app.api.routes.rankings import router as rankings_router
 from app.api.routes.stations import router as stations_router
+from app import logsetup
 from app.config import get_settings
 from app.limits import LimitExceeded, RestLimiter, client_ip
 from app.mcp_server.server import http_app as mcp_http_app
@@ -21,12 +21,9 @@ from app.services.errors import InvalidRequestError, NotFoundError
 
 settings = get_settings()
 
-# App log lines (e.g. MCP calls) to stdout: Railway shows everything on stderr as errors.
-_handler = logging.StreamHandler(sys.stdout)
-_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-logging.getLogger("app").addHandler(_handler)
-logging.getLogger("app").setLevel(logging.INFO)
-logging.getLogger("app").propagate = False
+# INFO to stdout, WARNING and above to stderr (Railway shows everything on stderr as an error), uvicorn included.
+logsetup.configure("%(asctime)s %(levelname)s %(name)s %(message)s", uvicorn=True)
+logging.getLogger("httpx").setLevel(logging.WARNING)  # one INFO line per outgoing request
 
 mcp_app = mcp_http_app()
 

@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
+from app import logsetup
 from app.config import get_settings
 from app.db.session import SessionLocal
 from app.ingest import dmi, fmi, imo, kaa, met, smhi
@@ -43,8 +44,8 @@ def main() -> int:
     parser.add_argument("--qc-only", action="store_true", help="only run the spatial quality check")
     args = parser.parse_args()
 
-    # stdout, not the default stderr: Railway marks everything on stderr as an error.
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
+    # INFO to stdout, WARNING and above to stderr: Railway marks everything on stderr as an error.
+    logsetup.configure("%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = get_settings()
 
